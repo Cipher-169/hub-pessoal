@@ -1,4 +1,20 @@
+// src/views/now.js
 import { esc, when, bg } from '../utils/helpers.js';
+
+let animesRef = [];
+export function setCatalogAnimes(list) { animesRef = list; }
+
+export function renderHero(heroEl, heroinEl, animes) {
+  const pool = animes.filter(a => a.banner && ["CURRENT", "REPEATING"].includes(a.status));
+  const best = animes.filter(a => a.banner && a.score >= 95);
+  const list = pool.length ? pool : best.length ? best : animes.filter(a => a.banner);
+  const a = list[Math.floor(Math.random() * list.length)];
+  if (!a) { heroinEl.innerHTML = "<h1>Meu hub de animes</h1>"; return; }
+  heroEl.style.backgroundImage = `url('${a.banner}')`;
+  const cur = ["CURRENT", "REPEATING"].includes(a.status);
+  heroinEl.innerHTML = `<small>${cur ? `Assistindo agora, ep ${a.progress}${a.eps ? " de " + a.eps : ""}` : `Um dos meus ${a.score}+`}</small>
+   <h1>${esc(a.title)}</h1><p>${when(a)}</p><button class="go" data-id="${a.id}">Ver OP e ED</button>`;
+}
 
 export const poster = a => {
   const cur = ["CURRENT", "REPEATING"].includes(a.status), pct = a.eps ? Math.min(100, a.progress / a.eps * 100) : 0;

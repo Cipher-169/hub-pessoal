@@ -2,7 +2,10 @@
 import { OWNER_ANILIST_USERNAME } from './config.js';
 import { fetchList } from './services/anilist.js';
 import { esc } from './utils/helpers.js';
-import { renderHero, renderNow, renderPanel, renderTop, renderHall, setCatalogAnimes } from './views/catalogViews.js';
+import { renderHero, renderNow, setCatalogAnimes } from './views/now.js';
+import { renderPanel } from './views/panel.js';
+import { renderTop } from './views/top.js';
+import { renderHall } from './views/hall.js';
 import { renderStats } from './views/stats.js';
 import { renderRanking } from './views/ranking.js';
 import { openAnimeModal, loadDiary, loadExperience, getActiveDiaryAnime } from './views/modal.js';
