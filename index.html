@@ -78,6 +78,32 @@ dialog::backdrop{background:#000b}
 video{width:100%;border-radius:8px;margin-top:8px;background:#000}
 code{font-size:.8rem;color:var(--muted)}
 a{color:var(--sun)}
+/* Estatísticas pessoais */
+.stats-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:4px 0 18px}
+.stats-head p{margin:0;color:var(--muted);font-size:.88rem}
+.stats-head button,.stats-refresh{border:1px solid var(--line);background:var(--panel);border-radius:9px;padding:8px 13px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:14px 0 22px}
+.stat-card{background:linear-gradient(145deg,#171e30,#111725);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
+.stat-card small{display:block;color:var(--muted);font-size:.8rem}
+.stat-card strong{display:block;font:600 1.8rem var(--serif);margin-top:4px;overflow-wrap:anywhere}
+.stat-card span{display:block;color:var(--muted);font-size:.78rem;margin-top:3px}
+.stats-section{margin:28px 0}
+.stats-section h2{margin:0 0 12px}
+.stats-columns{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:18px}
+.stats-panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
+.stats-panel h3{font:600 1.08rem var(--serif);margin:0 0 14px}
+.stat-line{display:grid;grid-template-columns:minmax(90px,1fr) minmax(80px,2fr) auto;gap:10px;align-items:center;margin:10px 0;font-size:.88rem}
+.stat-line>span:first-child{overflow-wrap:anywhere}
+.stat-track{height:8px;background:#ffffff12;border-radius:99px;overflow:hidden}
+.stat-track i{display:block;height:100%;background:var(--sun);border-radius:99px}
+.stat-line b{font-size:.82rem;font-variant-numeric:tabular-nums}
+.stat-list{display:grid;gap:9px;margin:0;padding:0;list-style:none}
+.stat-list li{display:flex;justify-content:space-between;gap:12px;align-items:baseline;border-bottom:1px solid #ffffff0d;padding-bottom:7px;font-size:.88rem}
+.stat-list li:last-child{border:0;padding-bottom:0}
+.stat-list span{min-width:0;overflow-wrap:anywhere}.stat-list b{white-space:nowrap;font-variant-numeric:tabular-nums}
+.stats-note{color:var(--muted);font-size:.78rem;margin:12px 0 0}
+@media(max-width:560px){.stat-line{grid-template-columns:minmax(80px,1fr) minmax(50px,1.2fr) auto;gap:7px}.stat-card strong{font-size:1.55rem}}
+
 .cp{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 12px}
 .yr{margin:32px 0}
 .yr h2{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:0 0 12px}
@@ -371,6 +397,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
     <button role="tab" aria-selected="false" data-tab="panel">Painel</button>
     <button role="tab" aria-selected="false" data-tab="top">Top animes</button>
     <button role="tab" aria-selected="false" data-tab="hall">Hall da fama OP e ED</button>
+    <button role="tab" aria-selected="false" data-tab="stats" id="stats-tab" class="hidden">Estatísticas</button>
   </div>
   <div class="bar hidden" id="filters">
     <select id="type" aria-label="Tipo"><option value="OP">Openings</option><option value="ED">Endings</option></select>
@@ -408,7 +435,7 @@ const SEASONS={WINTER:"Winter",SPRING:"Spring",SUMMER:"Summer",FALL:"Fall"};
 const when=a=>[SEASONS[a.season],a.year].filter(Boolean).join(" ");
 const bg=u=>u?`style="background-image:url('${u}')"`:"";
 
-let animes=[],tab="now",fbUser=null,fbErr=null,loadingCatalog=false;
+let animes=[],tab="now",fbUser=null,fbErr=null,loadingCatalog=false,statsLoading=false;
 const byId=id=>animes.find(a=>a.id===id);
 const themeCache=new Map();
 const PROVISIONAL_THEME_SLUGS={OP:"provisional_op",ED:"provisional_ed"};
@@ -682,7 +709,102 @@ async function loadDiary(id){
   catch(err){$("diary-content").innerHTML=`<div class="msg err">Não consegui carregar o diário (${esc(err.code||err.message)}). Confira se a leitura pública está liberada nas regras do Firestore.</div>`}
 }
 
+const statNum=n=>Number(n||0).toLocaleString("pt-BR");
+const statPct=(n,total)=>total?`${Math.round(n/total*100)}%`:"0%";
+function statBars(entries,total){
+  if(!entries.length)return '<p class="meta">Sem dados registrados.</p>';
+  const max=Math.max(1,...entries.map(x=>x[1]));
+  return entries.map(([label,value])=>`<div class="stat-line"><span>${esc(label)}</span><div class="stat-track"><i style="width:${Math.max(0,value/max*100)}%"></i></div><b>${statNum(value)} <span class="meta">(${statPct(value,total)})</span></b></div>`).join("");
+}
+function statList(entries,empty="Sem dados registrados."){
+  return entries.length?`<ul class="stat-list">${entries.map(([label,value])=>`<li><span>${esc(label)}</span><b>${esc(value)}</b></li>`).join("")}</ul>`:`<p class="meta">${empty}</p>`;
+}
+async function renderStats(refresh=false){
+  if(!fbUser){$("view").innerHTML='<div class="msg">Entre com a conta proprietária para consultar suas estatísticas pessoais.</div>';return;}
+  if(statsLoading)return;statsLoading=true;
+  $("view").innerHTML='<div class="msg">Calculando suas estatísticas pessoais…</div>';
+  try{
+    const [notes,logs,scores]=await Promise.all([
+      hubFB.getAllAnimeNotes({refresh}),hubFB.getAllEpisodeLogs({refresh}),hubFB.getSongScores()
+    ]);
+    const noteRows=Object.entries(notes||{}),noteValues=noteRows.map(([,v])=>v||{}),totalNotes=noteRows.length;
+    const languages={dub:0,sub:0,other:0,unknown:0};
+    const platformCounts=new Map();let noPlatform=0,withPlatform=0,withViewingNotes=0,withThemeComments=0,totalThemeComments=0;
+    noteValues.forEach(n=>{
+      if(Object.prototype.hasOwnProperty.call(languages,n.language)&&n.language)languages[n.language]++;else languages.unknown++;
+      const ps=Array.isArray(n.platforms)?n.platforms.filter(Boolean):[],customPlatform=String(n.otherPlatform||"").trim();
+      const normalizedPlatforms=ps.map(p=>p==="Outra"&&customPlatform?customPlatform:p);
+      if(customPlatform&&!normalizedPlatforms.includes(customPlatform))normalizedPlatforms.push(customPlatform);
+      if(normalizedPlatforms.length){withPlatform++;normalizedPlatforms.forEach(p=>platformCounts.set(p,(platformCounts.get(p)||0)+1));}
+      else noPlatform++;
+      if(String(n.viewingNotes||"").trim())withViewingNotes++;
+      const comments=Object.values(n.themeComments||{}).filter(v=>String(v||"").trim());
+      if(comments.length)withThemeComments++;
+      totalThemeComments+=comments.length;
+    });
+    const platforms=[...platformCounts.entries()].sort((a,b)=>b[1]-a[1]);
+    const logRows=Array.isArray(logs)?logs:[],logAnimeCounts=new Map(),months=new Map();let datedLogs=0;
+    logRows.forEach(l=>{
+      const id=String(l.animeId??"");logAnimeCounts.set(id,(logAnimeCounts.get(id)||0)+1);
+      const m=String(l.watchedAt||"").match(/^(\d{4})-(\d{2})/);
+      if(m){const key=`${m[1]}-${m[2]}`;months.set(key,(months.get(key)||0)+1);datedLogs++;}
+    });
+    const monthNames=new Intl.DateTimeFormat("pt-BR",{month:"short",year:"numeric"});
+    const monthEntries=[...months.entries()].sort((a,b)=>a[0].localeCompare(b[0])).slice(-12).map(([k,v])=>{const [y,m]=k.split("-").map(Number);return [monthNames.format(new Date(y,m-1,1)),v]});
+    const animeTitle=id=>byId(Number(id))?.title||`Anime ${id}`;
+    const mostLogged=[...logAnimeCounts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([id,n])=>[animeTitle(id),`${n} registro(s)`]);
+    const catalogByAnime=new Map(noteRows.map(([id,n])=>[String(id),Array.isArray(n?.themeCatalog)?n.themeCatalog:[]]));
+    const ratedSongs=[];
+    Object.entries(scores||{}).forEach(([key,score])=>{
+      const cut=key.indexOf(":");if(cut<1||!Number.isFinite(Number(score)))return;
+      const id=key.slice(0,cut),slug=key.slice(cut+1),catalog=catalogByAnime.get(id)||[],theme=catalog.find(t=>t.slug===slug);
+      const type=theme?.type||themeTypeFromSlug(slug);if(!["OP","ED"].includes(type))return;
+      ratedSongs.push({id,slug,type,score:Number(score),title:theme?.title|| (isProvisionalThemeSlug(slug)?`${type} provisória`:slug),artist:theme?.artist||"",anime:animeTitle(id)});
+    });
+    const songStats={OP:ratedSongs.filter(x=>x.type==="OP"),ED:ratedSongs.filter(x=>x.type==="ED")};
+    const avg=arr=>arr.length?(arr.reduce((sum,x)=>sum+x.score,0)/arr.length).toFixed(1).replace(".",","):"—";
+    const artistCounts=new Map();ratedSongs.filter(x=>x.artist).forEach(x=>x.artist.split(/,\s*/).filter(Boolean).forEach(a=>artistCounts.set(a,(artistCounts.get(a)||0)+1)));
+    const topArtists=[...artistCounts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([a,n])=>[a,`${n} música(s)`]);
+    const topSongs=[...ratedSongs].sort((a,b)=>b.score-a.score).slice(0,5).map(x=>[`${x.title} · ${x.anime}`,`${x.score}/10`]);
+    const scoreRanges=[["0–5,9",0],["6–6,9",0],["7–7,9",0],["8–8,9",0],["9–9,4",0],["9,5–10",0]];
+    ratedSongs.forEach(x=>{const i=x.score<6?0:x.score<7?1:x.score<8?2:x.score<9?3:x.score<9.5?4:5;scoreRanges[i][1]++});
+    const scoreTotal=ratedSongs.length;
+    const diaryAnimeCount=logAnimeCounts.size,unknownDate=logRows.length-datedLogs;
+    const html=`<div class="stats-head"><p>Indicadores calculados a partir das suas anotações, avaliações e diário. Não inclui estatísticas gerais do AniList.</p><button type="button" id="stats-refresh" ${statsLoading?"disabled":""}>Atualizar dados</button></div>
+      <div class="stats-grid">
+       <article class="stat-card"><small>Animes com dados pessoais</small><strong>${statNum(totalNotes)}</strong><span>Documentos de experiência/OP-ED</span></article>
+       <article class="stat-card"><small>Registros no diário</small><strong>${statNum(logRows.length)}</strong><span>${statNum(diaryAnimeCount)} anime(s) com diário</span></article>
+       <article class="stat-card"><small>Músicas avaliadas</small><strong>${statNum(scoreTotal)}</strong><span>${songStats.OP.length} OPs · ${songStats.ED.length} EDs</span></article>
+       <article class="stat-card"><small>Comentários de OP/ED</small><strong>${statNum(totalThemeComments)}</strong><span>Em ${statNum(withThemeComments)} anime(s)</span></article>
+      </div>
+      <section class="stats-section"><h2>Como você assiste</h2><div class="stats-columns">
+       <div class="stats-panel"><h3>Idioma de consumo</h3>${statBars([["Legendado",languages.sub],["Dublado",languages.dub],["Outro",languages.other],["Não informado",languages.unknown]],totalNotes)}<p class="stats-note">Base: ${totalNotes} anime(s) com documento de dados pessoais.</p></div>
+       <div class="stats-panel"><h3>Plataformas</h3>${statBars(platforms,totalNotes)}${noPlatform?`<p class="stats-note">Sem plataforma informada: ${noPlatform} anime(s).</p>`:""}<p class="stats-note">Um anime pode aparecer em mais de uma plataforma; por isso, a soma pode superar o total de animes.</p></div>
+      </div></section>
+      <section class="stats-section"><h2>Diário de episódios</h2><div class="stats-columns">
+       <div class="stats-panel"><h3>Registros por mês</h3>${statBars(monthEntries,logRows.length)}<p class="stats-note">${datedLogs} registro(s) com data; ${unknownDate} sem data informada. Exibindo até os 12 meses mais recentes com atividade.</p></div>
+       <div class="stats-panel"><h3>Animes com mais registros</h3>${statList(mostLogged,"Ainda não há registros no diário.")}</div>
+      </div></section>
+      <section class="stats-section"><h2>Openings e endings</h2><div class="stats-grid">
+       <article class="stat-card"><small>Média das OPs</small><strong>${avg(songStats.OP)}<span style="display:inline;font:400 .85rem var(--sans)"> / 10</span></strong><span>${songStats.OP.length} avaliadas</span></article>
+       <article class="stat-card"><small>Média das EDs</small><strong>${avg(songStats.ED)}<span style="display:inline;font:400 .85rem var(--sans)"> / 10</span></strong><span>${songStats.ED.length} avaliadas</span></article>
+      </div><div class="stats-columns">
+       <div class="stats-panel"><h3>Distribuição das notas</h3>${statBars(scoreRanges,scoreTotal)}</div>
+       <div class="stats-panel"><h3>Artistas mais avaliados</h3>${statList(topArtists,"Não há artistas identificados nos catálogos salvos.")}<h3 style="margin-top:22px">Músicas mais bem avaliadas</h3>${statList(topSongs,"Ainda não há músicas avaliadas.")}</div>
+      </div><p class="stats-note">Músicas provisórias ou sem catálogo salvo entram nas médias e na distribuição quando o tipo OP/ED pode ser identificado, mas não entram no ranking de artistas quando não há artista registrado.</p></section>
+      <section class="stats-section"><h2>Suas anotações</h2><div class="stats-grid">
+       <article class="stat-card"><small>Experiência preenchida</small><strong>${withViewingNotes}</strong><span>Anime(s) com texto em “Outras informações”</span></article>
+       <article class="stat-card"><small>Idioma informado</small><strong>${totalNotes-languages.unknown}</strong><span>Anime(s) com idioma registrado</span></article>
+       <article class="stat-card"><small>Plataforma informada</small><strong>${withPlatform}</strong><span>Anime(s) com ao menos uma opção marcada</span></article>
+       <article class="stat-card"><small>Comentários OP/ED</small><strong>${totalThemeComments}</strong><span>${withThemeComments} anime(s) com comentários</span></article>
+      </div></section>`;
+    $("view").innerHTML=html;
+    $("stats-refresh")?.addEventListener("click",()=>renderStats(true));
+  }catch(e){$("view").innerHTML=`<div class="msg err">Não consegui calcular as estatísticas (${esc(e.code||e.message)}). Confira se você está conectado à conta proprietária e se as regras permitem a leitura dos seus dados.</div>`;}
+  finally{statsLoading=false;}
+}
 function render(){
+  if(tab==="stats"){ $("filters").classList.add("hidden");$("type").classList.add("hidden");renderStats();return; }
   $("filters").classList.toggle("hidden",tab==="now"||tab==="panel");
   $("type").classList.toggle("hidden",tab!=="hall");
   ({now:renderNow,panel:renderPanel,top:renderTop,hall:renderHall})[tab]();
@@ -729,13 +851,15 @@ async function load({sync=false}={}){
   }finally{loadingCatalog=false;button.disabled=false;}
 }
 document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>{tab=b.dataset.tab;
-  document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));if(animes.length)render()}));
+  document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));if(animes.length||tab==="stats")render()}));
 ["type","year","season","limit"].forEach(id=>$(id).addEventListener("change",()=>animes.length&&render()));
 function updateMe(){
   $("me").innerHTML=fbUser?`Logado como ${esc(fbUser.name)} · UID: <code>${esc(fbUser.uid)}</code> <button class="cp" data-copy="${esc(fbUser.uid)}">Copiar UID</button>`:"";
   $("login").textContent=fbUser?"Sair":"Entrar com Google";
   $("export-data").classList.toggle("hidden",!fbUser);
   $("import-data").classList.toggle("hidden",!fbUser);
+  $("stats-tab").classList.toggle("hidden",!fbUser);
+  if(!fbUser&&tab==="stats"){tab="now";document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",String(x.dataset.tab==="now")));if(animes.length)render();}
   if(!fbUser)$("sync-status").textContent="Catálogo público via AniList; entre com a conta proprietária para editar seus dados.";
 }
 window.addEventListener("fb-user",e=>{fbUser=e.detail;updateMe();load({sync:false})});
@@ -943,9 +1067,15 @@ window.hubFB={
     if(!auth.currentUser)throw new Error("Faça login para salvar a lista de músicas.");
     return setDoc(doc(db,"users",auth.currentUser.uid,"animeNotes",String(animeId)),{animeId:Number(animeId),themeCatalog:themes.map(t=>({slug:t.slug,type:t.type,title:t.title,artist:t.artist,eps:t.eps||"",video:t.video||""})),themeCatalogUpdatedAt:serverTimestamp()},{merge:true});
   },
-  getAllAnimeNotes:async()=>{
-    if(!auth.currentUser)throw new Error("Faça login para consultar suas anotações.");
-    const snap=await getDocs(collection(db,"users",auth.currentUser.uid,"animeNotes"));const out={};snap.forEach(d=>out[d.id]=d.data());return out;
+  getAllAnimeNotes:async({refresh=false}={})=>{
+    if(!auth.currentUser||!isOwner())throw new Error("Faça login com a conta proprietária para consultar suas anotações.");
+    if(refresh)await cacheDelete("stats:animeNotes");
+    return freshOrCached("stats:animeNotes",async()=>{const snap=await getDocs(collection(db,"users",auth.currentUser.uid,"animeNotes"));const out={};snap.forEach(d=>out[d.id]=d.data());return out;});
+  },
+  getAllEpisodeLogs:async({refresh=false}={})=>{
+    if(!auth.currentUser||!isOwner())throw new Error("Faça login com a conta proprietária para consultar o diário.");
+    if(refresh)await cacheDelete("stats:episodeLogs");
+    return freshOrCached("stats:episodeLogs",async()=>{const snap=await getDocs(collection(db,"users",auth.currentUser.uid,"episodeLogs"));return snap.docs.map(d=>({id:d.id,...d.data()}));});
   },
   exportData:async()=>{
     if(!auth.currentUser)throw new Error("Faça login para exportar seus dados.");
@@ -1012,14 +1142,14 @@ window.hubFB={
       for(const op of operations.slice(i,i+400))batch.set(op.ref,op.data,{merge:true});
       await batch.commit();
     }
-    await cacheDelete("songScores");
+    await cacheDelete("songScores");await cacheDelete("stats:animeNotes");await cacheDelete("stats:episodeLogs");
     for(const row of backup.data.animeNotes)await cacheDelete(noteCacheKey(row.id));
     for(const row of backup.data.episodeLogs)await cacheDelete(logsCacheKey(row.animeId));
     return {counts:validation.counts,total:validation.total};
   },
   getAnimeNote:async animeId=>freshOrCached(noteCacheKey(animeId),async()=>{const snap=await getDoc(notePath(animeId));return snap.exists()?snap.data():{}}),
-  saveAnimeNote:async(animeId,data)=>{requireOwner();await setDoc(notePath(animeId),{animeId:Number(animeId),...data,updatedAt:serverTimestamp()},{merge:true});const old=(await cacheGet(noteCacheKey(animeId)))?.data||{};await cacheSet(noteCacheKey(animeId),{...old,...data});},
-  saveThemeComment:async(animeId,slug,comment)=>{requireOwner();await setDoc(notePath(animeId),{animeId:Number(animeId),themeComments:{[slug]:comment},updatedAt:serverTimestamp()},{merge:true});const old=(await cacheGet(noteCacheKey(animeId)))?.data||{};await cacheSet(noteCacheKey(animeId),{...old,themeComments:{...(old.themeComments||{}),[slug]:comment}})},
+  saveAnimeNote:async(animeId,data)=>{requireOwner();await setDoc(notePath(animeId),{animeId:Number(animeId),...data,updatedAt:serverTimestamp()},{merge:true});const old=(await cacheGet(noteCacheKey(animeId)))?.data||{};await cacheSet(noteCacheKey(animeId),{...old,...data});await cacheDelete("stats:animeNotes");},
+  saveThemeComment:async(animeId,slug,comment)=>{requireOwner();await setDoc(notePath(animeId),{animeId:Number(animeId),themeComments:{[slug]:comment},updatedAt:serverTimestamp()},{merge:true});const old=(await cacheGet(noteCacheKey(animeId)))?.data||{};await cacheSet(noteCacheKey(animeId),{...old,themeComments:{...(old.themeComments||{}),[slug]:comment}});await cacheDelete("stats:animeNotes");},
   associateProvisionalTheme:async(animeId,kind,targetSlug)=>{
     requireOwner();if(!["OP","ED"].includes(kind))throw new Error("Tipo de música inválido.");
     const sourceSlug=PROVISIONAL_THEME_SLUGS[kind],sourceKey=`${animeId}:${sourceSlug}`,targetKey=`${animeId}:${targetSlug}`;
@@ -1037,17 +1167,17 @@ window.hubFB={
     await batch.commit();
     const old=(await cacheGet(noteCacheKey(animeId)))?.data||note,updatedComments={...(old.themeComments||{})};
     delete updatedComments[sourceSlug];if(sourceComment)updatedComments[targetSlug]=sourceComment;
-    await cacheSet(noteCacheKey(animeId),{...old,themeComments:updatedComments});
+    await cacheSet(noteCacheKey(animeId),{...old,themeComments:updatedComments});await cacheDelete("stats:animeNotes");
     const allScores=(await cacheGet("songScores"))?.data||{};
     if(sourceSnap.exists()){allScores[targetKey]=sourceSnap.data().score;delete allScores[sourceKey];await cacheSet("songScores",allScores);}
     const animeScores=(await cacheGet(`songScoresAnime:${animeId}`))?.data||{};
     if(sourceSnap.exists()){animeScores[targetKey]=sourceSnap.data().score;delete animeScores[sourceKey];await cacheSet(`songScoresAnime:${animeId}`,animeScores);}
     return true;
   },
-  addLog:async({animeId,episode,watchedAt,comment})=>{requireOwner();await addDoc(logsPath(),{animeId:Number(animeId),episode:Number(episode),watchedAt,comment,createdAt:serverTimestamp()});await cacheDelete(logsCacheKey(animeId))},
+  addLog:async({animeId,episode,watchedAt,comment})=>{requireOwner();await addDoc(logsPath(),{animeId:Number(animeId),episode:Number(episode),watchedAt,comment,createdAt:serverTimestamp()});await cacheDelete(logsCacheKey(animeId));await cacheDelete("stats:episodeLogs")},
   getLogs:async animeId=>freshOrCached(logsCacheKey(animeId),async()=>{const q=query(logsPath(),where("animeId","==",Number(animeId)));const snap=await getDocs(q);return snap.docs.map(d=>({id:d.id,...d.data(),createdAtMs:d.data().createdAt?.toMillis?.()||0}))}),
-  updateLog:async(id,changes)=>{requireOwner();await updateDoc(doc(db,"users",OWNER_UID,"episodeLogs",id),{...changes,updatedAt:serverTimestamp()});await cacheDelete(logsCacheKey(window.activeDiaryAnime))},
-  deleteLog:async id=>{requireOwner();await deleteDoc(doc(db,"users",OWNER_UID,"episodeLogs",id));await cacheDelete(logsCacheKey(window.activeDiaryAnime))}
+  updateLog:async(id,changes)=>{requireOwner();await updateDoc(doc(db,"users",OWNER_UID,"episodeLogs",id),{...changes,updatedAt:serverTimestamp()});await cacheDelete(logsCacheKey(window.activeDiaryAnime));await cacheDelete("stats:episodeLogs")},
+  deleteLog:async id=>{requireOwner();await deleteDoc(doc(db,"users",OWNER_UID,"episodeLogs",id));await cacheDelete(logsCacheKey(window.activeDiaryAnime));await cacheDelete("stats:episodeLogs")} 
 };
 onAuthStateChanged(auth,u=>{
   emit("fb-user",u&&u.uid===OWNER_UID?{uid:u.uid,name:u.displayName||u.email}:null);
