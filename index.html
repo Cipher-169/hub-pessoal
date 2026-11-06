@@ -96,6 +96,7 @@ button.cell:hover{transform:translateY(-4px)}
 .cell.empty{background:none;border:1px dashed var(--line);box-shadow:none;justify-content:center;align-items:center}
 .cell.empty::before{display:none}
 @media(max-width:760px){.seasons{grid-template-columns:repeat(2,1fr)}}
+input.sc{width:90px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
 .hidden{display:none}
 @media(max-width:560px){.pod .info small{display:none}}
 </style>
@@ -104,12 +105,13 @@ button.cell:hover{transform:translateY(-4px)}
 <header class="hero" id="hero">
   <div class="top">
     <div class="brand">Hub de <i>animes</i></div>
-    <div class="who"><input id="user" aria-label="Usuário do AniList"><button id="load">Carregar</button></div>
+    <div class="who"><input id="user" aria-label="Usuário do AniList"><button id="load">Carregar</button><button id="login">Entrar com Google</button></div>
   </div>
   <div class="hero-in" id="heroin"><h1>Carregando…</h1></div>
 </header>
 <div class="wrap">
   <p class="sub" id="sub"></p>
+  <p class="meta" id="me"></p>
   <div class="tabs" role="tablist">
     <button role="tab" aria-selected="true" data-tab="now">Agora</button>
     <button role="tab" aria-selected="false" data-tab="panel">Painel</button>
@@ -143,13 +145,14 @@ const TIERS=[[100,"Masterpiece","#f2c46d"],[95,"Almost Perfect","#ff7a4d"],[90,"
  [80,"Good","#4aa8e0"],[75,"Decent","#98a2bd"],[70,"Average","#a89fb5"],[60,"Bad","#d98a3a"],[0,"Very Bad","#c0453f"]];
 const tier=s=>TIERS.find(t=>s>=t[0]);
 const badge=s=>{const t=tier(s);return `<span class="tier" style="--c:${t[2]}">${s}<small>${t[1]}</small></span>`};
+const sbadge=s=>{const t=tier(s*10);return `<span class="tier" style="--c:${t[2]}">${s}<small>/10</small></span>`};
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const $=id=>document.getElementById(id);
 const SEASONS={WINTER:"Winter",SPRING:"Spring",SUMMER:"Summer",FALL:"Fall"};
 const when=a=>[SEASONS[a.season],a.year].filter(Boolean).join(" ");
 const bg=u=>u?`style="background-image:url('${u}')"`:"";
 
-let animes=[],tab="now";
+let animes=[],tab="now",fbUser=null,fbErr=null;
 const byId=id=>animes.find(a=>a.id===id);
 const themeCache=new Map();
 
@@ -204,8 +207,8 @@ function ranking(items){ /* items: {id,cover,title,sub,score} */
   if(!items.length) return '<div class="msg">Nada com esses filtros.</div>';
   const pod=items.slice(0,3),rest=items.slice(3);
   return `<div class="podium">${pod.map((a,k)=>`<div class="pod"><span class="num">${k+1}</span><button class="poster" data-id="${a.id}"><img src="${a.cover}" alt=""></button>
-    <div class="info"><b>${esc(a.title)}</b><small class="meta">${esc(a.sub)}</small><div style="margin-top:6px">${badge(a.score)}</div></div></div>`).join("")}</div>
-   <ol class="list">${rest.map((a,k)=>`<li><button class="row" data-id="${a.id}"><span class="pos">${k+4}</span><img src="${a.cover}" alt="" loading="lazy"><div><b>${esc(a.title)}</b><div class="meta">${esc(a.sub)}</div></div>${badge(a.score)}</button></li>`).join("")}</ol>`;
+    <div class="info"><b>${esc(a.title)}</b><small class="meta">${esc(a.sub)}</small><div style="margin-top:6px">${(a.song?sbadge(a.score):badge(a.score))}</div></div></div>`).join("")}</div>
+   <ol class="list">${rest.map((a,k)=>`<li><button class="row" data-id="${a.id}"><span class="pos">${k+4}</span><img src="${a.cover}" alt="" loading="lazy"><div><b>${esc(a.title)}</b><div class="meta">${esc(a.sub)}</div></div>${(a.song?sbadge(a.score):badge(a.score))}</button></li>`).join("")}</ol>`;
 }
 function renderPanel(){
   const rated=animes.filter(a=>a.score>0&&a.year);
@@ -226,11 +229,11 @@ function renderTop(){
 }
 async function renderHall(){
   const keys=Object.keys(SONG_SCORES);
-  if(!keys.length){$("view").innerHTML='<div class="msg">Ainda não há músicas com nota. Clique num anime, use "Copiar linha" na música e cole dentro de <code>SONG_SCORES</code> no arquivo.</div>';return}
+  if(!keys.length){$("view").innerHTML=`<div class="msg">Ainda não há músicas com nota. ${fbErr?`Não consegui ler o banco (${fbErr}). Confira as regras do Firestore.`:"Entre com o Google, abra um anime e dê a nota (0 a 10) a uma música."}</div>`;return}
   $("view").innerHTML='<div class="msg">Buscando músicas no AnimeThemes…</div>';
   const ids=[...new Set(keys.map(k=>+k.split(":")[0]))],items=[];
   await Promise.all(ids.map(async id=>{try{const th=await fetchThemes(id),a=byId(id);
-    th.forEach(t=>{const sc=SONG_SCORES[`${id}:${t.slug}`];if(sc!=null)items.push({type:t.type,season:a?.season,year:a?.year,id,cover:a?.cover||"",title:t.title,sub:`${t.artist} · ${a?.title||"Anime "+id}`,score:sc})})}catch(e){}}));
+    th.forEach(t=>{const sc=SONG_SCORES[`${id}:${t.slug}`];if(sc!=null)items.push({type:t.type,season:a?.season,year:a?.year,id,cover:a?.cover||"",title:t.title,sub:`${t.artist} · ${a?.title||"Anime "+id}`,score:sc,song:true})})}catch(e){}}));
   const l=filtered(items.filter(i=>i.type===$("type").value)).sort((a,b)=>b.score-a.score).slice(0,+$("limit").value);
   $("view").innerHTML=ranking(l);
 }
@@ -243,9 +246,9 @@ async function openAnime(id){
   d.showModal();
   try{const th=await fetchThemes(id);$("themes").className="";
     $("themes").innerHTML=th.length?th.map(t=>{const key=`${id}:${t.slug}`,sc=SONG_SCORES[key];
-      return `<div class="theme"><b>${t.slug}</b> · ${esc(t.title)} <span class="meta">${esc(t.artist)}${t.eps?" · eps "+esc(t.eps):""}</span> ${sc!=null?badge(sc):""}
+      return `<div class="theme"><b>${t.slug}</b> · ${esc(t.title)} <span class="meta">${esc(t.artist)}${t.eps?" · eps "+esc(t.eps):""}</span> ${sc!=null?sbadge(sc):""}
        ${t.video?`<video controls preload="none" src="${t.video}"></video>`:""}
-       <div style="margin-top:8px"><button class="cp" data-copy='"${key}": 90, // ${esc(t.title).replace(/'/g,"")}'>Copiar linha</button> <code>troque o 90 pela sua nota</code></div></div>`}).join(""):'<div class="msg">O AnimeThemes não tem OP/ED cadastrado pra esse anime.</div>';
+       ${fbUser?`<div style="margin-top:8px"><input class="sc" id="sc-${key}" type="text" inputmode="decimal" placeholder="0 a 10" value="${sc??""}"> <button class="cp" data-save="${key}">Salvar nota</button> <code id="st-${key}"></code></div>`:""}</div>`}).join(""):'<div class="msg">O AnimeThemes não tem OP/ED cadastrado pra esse anime.</div>';
   }catch(e){$("themes").innerHTML='<div class="msg err">Não consegui buscar as músicas agora. Tente de novo em instantes.</div>'}
 }
 
@@ -267,7 +270,32 @@ async function load(){
 document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>{tab=b.dataset.tab;
   document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));if(animes.length)render()}));
 ["type","year","season","limit"].forEach(id=>$(id).addEventListener("change",()=>animes.length&&render()));
-document.addEventListener("click",e=>{
+function updateMe(){
+  $("me").innerHTML=fbUser?`Logado como ${esc(fbUser.name)} · UID: <code>${esc(fbUser.uid)}</code> <button class="cp" data-copy="${esc(fbUser.uid)}">Copiar UID</button>`:"";
+  $("login").textContent=fbUser?"Sair":"Entrar com Google";
+}
+window.addEventListener("fb-user",e=>{fbUser=e.detail;updateMe()});
+window.addEventListener("fb-error",e=>{fbErr=e.detail;if(animes.length&&tab==="hall")render()});
+window.addEventListener("fb-scores",e=>{
+  Object.keys(SONG_SCORES).forEach(k=>delete SONG_SCORES[k]);Object.assign(SONG_SCORES,e.detail);
+  if(animes.length&&tab==="hall")render();
+});
+$("login").addEventListener("click",()=>{
+  if(!window.hubFB){alert("O Firebase ainda não carregou. Confira a internet e recarregue.");return}
+  (fbUser?hubFB.logout():hubFB.login()).catch(err=>alert("Não foi possível entrar: "+err.code));
+});
+document.addEventListener("click",async e=>{
+  const sv=e.target.closest("[data-save]");
+  if(sv){
+    const key=sv.dataset.save,v=document.getElementById("sc-"+key).value.trim().replace(",","."),st=document.getElementById("st-"+key);
+    try{
+      if(v===""){await hubFB.remove(key);st.textContent="nota removida";return}
+      const n=parseFloat(v);
+      if(isNaN(n)||n<0||n>10){st.textContent="use um número de 0 a 10";return}
+      await hubFB.save(key,n);st.textContent="salvo";
+    }catch(err){st.textContent="erro: "+(err.code||err.message)}
+    return;
+  }
   const g=e.target.closest("[data-go]");
   if(g){const [y,k]=g.dataset.go.split("|");tab="top";$("year").value=y;$("season").value=k;
     document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x.dataset.tab==="top"));
@@ -278,6 +306,35 @@ $("load").addEventListener("click",load);
 $("user").addEventListener("keydown",e=>{if(e.key==="Enter")load()});
 let saved=null;try{saved=localStorage.getItem("hub_user")}catch(e){}
 $("user").value=saved||DEFAULT_USER;load();
+</script>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
+import {getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
+import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,onSnapshot,doc,setDoc,deleteDoc,serverTimestamp} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
+
+const app=initializeApp({
+  apiKey:"AIzaSyCgHMZV_wIFOV4QuJi3bBRbu_iOXSJ1ahY",
+  authDomain:"hub-pesoal.firebaseapp.com",
+  projectId:"hub-pesoal",
+  storageBucket:"hub-pesoal.firebasestorage.app",
+  messagingSenderId:"335710840559",
+  appId:"1:335710840559:web:1d99e078383a9819a99d1a"
+});
+const auth=getAuth(app);
+/* cache local: funciona sem internet e sincroniza quando voltar */
+const db=initializeFirestore(app,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
+const emit=(n,d)=>window.dispatchEvent(new CustomEvent(n,{detail:d}));
+
+window.hubFB={
+  login:()=>signInWithPopup(auth,new GoogleAuthProvider()),
+  logout:()=>signOut(auth),
+  save:(key,n)=>setDoc(doc(db,"songScores",key),{score:n,updatedAt:serverTimestamp()}),
+  remove:key=>deleteDoc(doc(db,"songScores",key))
+};
+onAuthStateChanged(auth,u=>emit("fb-user",u?{uid:u.uid,name:u.displayName||u.email}:null));
+onSnapshot(collection(db,"songScores"),
+  snap=>{const m={};snap.forEach(d=>m[d.id]=d.data().score);emit("fb-scores",m)},
+  err=>emit("fb-error",err.code));
 </script>
 </body>
 </html>
