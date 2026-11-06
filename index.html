@@ -18,6 +18,7 @@ button{cursor:pointer}
 .top{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px clamp(16px,4vw,48px);flex-wrap:wrap}
 .brand{font:600 1.25rem var(--serif)}
 .brand i{color:var(--sun)}
+.project-version{display:inline-flex;align-items:center;margin-left:9px;padding:3px 9px;border:1px solid #ffffff35;border-radius:999px;color:var(--gold);font:500 .72rem var(--sans);vertical-align:middle;letter-spacing:.03em}
 .who{display:flex;gap:8px}
 .who input,.who button{background:#0a0d18aa;backdrop-filter:blur(8px);border:1px solid #ffffff2a;border-radius:999px;padding:7px 14px}
 .who button:hover{border-color:var(--sun)}
@@ -360,7 +361,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 .experience-form textarea,.theme-comment{min-height:84px;resize:vertical}
 .experience-form button,.theme-comment-save{justify-self:start;background:var(--sun);color:#1a0d08;border:0;border-radius:999px;padding:9px 17px;font-weight:600}
 .form-hint{color:var(--muted);font-size:.8rem;margin:4px 0 0}
-.theme-provisional{border-style:dashed!important;border-color:rgba(245,166,60,.55)!important}.theme-comment-wrap{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.theme-provisional{border-style:dashed!important;border-color:rgba(245,166,60,.55)!important}.theme-kind-badge{display:inline-flex;align-items:center;vertical-align:middle;margin-left:7px;padding:3px 8px;border-radius:999px;font-size:.72rem;font-weight:750;letter-spacing:.02em;line-height:1.2}.theme-kind-badge.op{color:#bfdbfe;background:rgba(37,99,235,.2);border:1px solid rgba(96,165,250,.45)}.theme-kind-badge.ed{color:#a7f3d0;background:rgba(5,150,105,.2);border:1px solid rgba(52,211,153,.4)}.theme-comment-wrap{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
 .theme-comment-wrap label{display:block;color:var(--muted);font-size:.8rem;margin-bottom:5px}
 .theme-comment-save{margin-top:7px}.experience-status{color:var(--muted);font-size:.82rem;min-height:1.2em}
 @media(max-width:560px){.diary-form{grid-template-columns:1fr}.diary-form textarea,.diary-form .wide-field{grid-column:auto}.diary-entry-head{align-items:flex-start;flex-direction:column}}
@@ -380,7 +381,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 <body>
 <header class="hero" id="hero">
   <div class="top">
-    <div class="brand">Hub de <i>animes</i></div>
+    <div class="brand">Hub de <i>animes</i><span class="project-version" id="project-version">v—</span></div>
     <div class="who"><span class="profile-chip" aria-label="Perfil AniList fixo">AniList: <strong>Clpher</strong></span><button id="load" type="button">Sincronizar AniList</button><button id="login" type="button">Entrar com Google</button></div>
   </div>
   <div class="hero-in" id="heroin"><h1>Carregando…</h1></div>
@@ -410,6 +411,23 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 <dialog id="dlg"></dialog>
 
 <script>
+/* =====================================================================
+   CONTROLE DE VERSÃO DO PROJETO — LEIA ANTES DE MODIFICAR ESTE ARQUIVO
+   Versão atual: 5
+   REGRA OBRIGATÓRIA PARA QUALQUER IA OU PESSOA QUE EDITAR O PROJETO:
+   - Sempre que fizer qualquer modificação no código, incremente HUB_VERSION
+     em exatamente 1 (ex.: 4 -> 5), mesmo que seja uma correção pequena.
+   - Não altere a versão apenas para renomear/copiar o arquivo ou fazer commit.
+   - Mantenha este comentário e o indicador visual do topo sincronizados:
+     o indicador é preenchido automaticamente a partir de HUB_VERSION.
+   - Ao entregar o arquivo, informe a nova versão e não volte para uma versão
+     anterior. Se receber um arquivo com versão menor, avise o usuário.
+   - Antes de editar, procure HUB_VERSION e confira a versão recebida.
+   ===================================================================== */
+const HUB_VERSION = 5;
+window.HUB_VERSION = HUB_VERSION;
+document.getElementById("project-version").textContent = `v${HUB_VERSION}`;
+
 /* ============ CONFIGURAÇÃO ============ */
 const OWNER_ANILIST_USERNAME = "Clpher";
 const OWNER_UID = "X569uLFYFgcX6i9mbEVsylUX7Li1";
@@ -572,7 +590,7 @@ function renderThemeList(id,th,note,offline=false){
   const hasSavedProvisional=Object.entries(PROVISIONAL_THEME_SLUGS).some(([kind,slug])=>
     Object.prototype.hasOwnProperty.call(comments,slug)||SONG_SCORES[`${id}:${slug}`]!=null);
   const provisionalKindsToRender=[...new Set([...provisionalKinds,...(hasSavedProvisional?Object.keys(PROVISIONAL_THEME_SLUGS).filter(kind=>Object.prototype.hasOwnProperty.call(comments,PROVISIONAL_THEME_SLUGS[kind])||SONG_SCORES[`${id}:${PROVISIONAL_THEME_SLUGS[kind]}`]!=null):[])])];
-  const renderCard=(t,{provisional=false,orphan=false}={})=>{
+  const renderCard=(t,{provisional=false,orphan=false,label=""}={})=>{
     const key=`${id}:${t.slug}`,sc=SONG_SCORES[key],comment=comments[t.slug]||"";
     const title=provisional?`${t.type} provisória`:t.title||t.slug;
     const meta=provisional?"Cadastro temporário · sem identificação da música":(orphan?"Informações da música indisponíveis":"");
@@ -580,15 +598,23 @@ function renderThemeList(id,th,note,offline=false){
     if(provisional&&!offline&&themes.length&&fbUser){
       association=`<div class="theme-comment-wrap"><label for="associate-${t.type}">Quando a API voltou, escolha a música correspondente para transferir sua avaliação:</label><select id="associate-${t.type}" style="width:100%;background:#0c1220;border:1px solid var(--line);border-radius:9px;padding:9px;color:var(--text)"><option value="">Selecione uma música…</option>${themes.filter(x=>x.type===t.type).map(x=>`<option value="${esc(x.slug)}">${esc(x.title||x.slug)}${x.artist?` — ${esc(x.artist)}`:""}</option>`).join("")}</select><button class="theme-comment-save" data-associate-provisional="${t.type}">Associar avaliação</button><span class="experience-status" id="associate-status-${t.type}"></span></div>`;
     }
-    return `<div class="theme ${provisional?"theme-provisional":""}"><b>${esc(title)}</b> ${!provisional&&t.title?`<span class="meta">${esc(t.artist||"")}${t.eps?" · eps "+esc(t.eps):""}</span>`:`<span class="meta">${esc(meta)}</span>`} ${sc!=null?sbadge(sc):""}
+    const kind=themeTypeFromSlug(t.slug)||String(t.type||"").toUpperCase();
+    const kindBadge=!provisional&&label?`<span class="theme-kind-badge ${kind.toLowerCase()}">${esc(label)}</span>`:"";
+    return `<div class="theme ${provisional?"theme-provisional":""}"><b>${esc(title)}</b>${kindBadge} ${!provisional&&t.title?`<span class="meta">${esc(t.artist||"")}${t.eps?" · eps "+esc(t.eps):""}</span>`:`<span class="meta">${esc(meta)}</span>`} ${sc!=null?sbadge(sc):""}
       ${t.video&&!offline?`<video controls preload="none" src="${esc(t.video)}"></video>`:""}
       ${fbUser?`<div style="margin-top:8px"><label class="meta" for="sc-${key}">Nota (opcional)</label><input class="sc" id="sc-${key}" type="text" inputmode="decimal" placeholder="0 a 10" value="${sc??""}"> <button class="cp" data-save="${key}">Salvar nota</button> <code id="st-${key}"></code></div><div class="theme-comment-wrap"><label for="tc-${key}">Minha impressão sobre esta música (opcional)</label><textarea class="theme-comment" id="tc-${key}" maxlength="5000" placeholder="O que achou da música, animação, cenas…">${esc(comment)}</textarea><button class="theme-comment-save" data-save-theme-comment="${esc(t.slug)}">Salvar comentário</button> <span class="experience-status" id="tcs-${key}"></span></div>${association}`:(comment?`<div class="theme-comment-wrap public-theme-comment"><span class="meta">Minha impressão</span><p style="white-space:pre-wrap;margin:8px 0 0">${esc(comment)}</p></div>`:"")}</div>`;
   };
-  const cards=themes.map(t=>renderCard(t));
+  const typeCounters={OP:0,ED:0};
+  const cards=themes.map(t=>{
+    const kind=themeTypeFromSlug(t.slug)||String(t.type||"").toUpperCase();
+    if(kind==="OP"||kind==="ED")typeCounters[kind]++;
+    const label=(kind==="OP"||kind==="ED")?`${kind}${typeCounters[kind]}`:"";
+    return renderCard(t,{label});
+  });
   // Comentários de músicas antigas que não estão no catálogo atual continuam acessíveis.
   savedOrphans.forEach(slug=>{
     const kind=themeTypeFromSlug(slug);if(!kind)return;
-    cards.push(renderCard({slug,type:kind,title:slug,artist:"",video:""},{orphan:true}));
+    cards.push(renderCard({slug,type:kind,title:slug,artist:"",video:""},{orphan:true,label:slug}));
   });
   provisionalKindsToRender.forEach(kind=>{
     const slug=PROVISIONAL_THEME_SLUGS[kind];
