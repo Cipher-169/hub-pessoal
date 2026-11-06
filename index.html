@@ -74,6 +74,9 @@ dialog::backdrop{background:#000b}
 .dh::before{content:"";position:absolute;inset:0;background:linear-gradient(0deg,var(--bg),#0a0d1840)}
 .dh>*{position:relative}.dh h2{margin:0 0 4px}
 .dx{position:absolute!important;top:12px;right:14px;background:#0a0d18aa;border:1px solid #ffffff2a;border-radius:999px;padding:5px 14px}
+.anime-refresh{align-self:flex-start;margin:10px 0 0;background:#0a0d18bb;border:1px solid var(--line);border-radius:999px;padding:7px 13px;color:var(--text);font-size:.82rem}
+.anime-refresh:hover{border-color:var(--sun)}.anime-refresh:disabled{opacity:.6;cursor:wait}
+.anime-refresh-status{margin-left:9px;color:var(--muted);font-size:.78rem}
 .db{padding:6px 22px 22px}
 .theme{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0}
 video{width:100%;border-radius:8px;margin-top:8px;background:#000}
@@ -413,7 +416,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 <script>
 /* =====================================================================
    CONTROLE DE VERSÃO DO PROJETO — LEIA ANTES DE MODIFICAR ESTE ARQUIVO
-   Versão atual: 6
+   Versão atual: 7
    REGRA OBRIGATÓRIA PARA QUALQUER IA OU PESSOA QUE EDITAR O PROJETO:
    - Sempre que fizer qualquer modificação no código, incremente HUB_VERSION
      em exatamente 1 (ex.: 4 -> 5), mesmo que seja uma correção pequena.
@@ -424,7 +427,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
      anterior. Se receber um arquivo com versão menor, avise o usuário.
    - Antes de editar, procure HUB_VERSION e confira a versão recebida.
    ===================================================================== */
-const HUB_VERSION = 6;
+const HUB_VERSION = 8;
 window.HUB_VERSION = HUB_VERSION;
 document.getElementById("project-version").textContent = `v${HUB_VERSION}`;
 
@@ -635,7 +638,8 @@ function renderThemeList(id,th,note,offline=false){
 async function openAnime(id){
   const a=byId(id),d=$("dlg");activeDiaryAnime=id;window.activeDiaryAnime=id;
   d.innerHTML=`<div class="dh" ${bg(a?.banner||a?.cover)}><button class="dx" onclick="dlg.close()">Fechar</button><h2>${esc(a?.title||"Anime "+id)}</h2>
-   <div class="meta">${a?when(a):""} ${a?.score?badge(a.score):""} · <a href="${a?.url||"https://anilist.co/anime/"+id}" target="_blank" rel="noopener">AniList</a></div></div>
+   <div class="meta">${a?when(a):""} ${a?.score?badge(a.score):""} · <a href="${a?.url||"https://anilist.co/anime/"+id}" target="_blank" rel="noopener">AniList</a></div>
+   <div><button type="button" class="anime-refresh" data-refresh-anime="${id}">↻ Atualizar dados deste anime</button><span class="anime-refresh-status" id="anime-refresh-status" role="status"></span></div></div>
    <div class="db"><div class="detail-tabs"><button type="button" data-detail-tab="themes" aria-selected="true">OP e ED</button><button type="button" data-detail-tab="experience" aria-selected="false">Minha experiência</button><button type="button" data-detail-tab="diary" aria-selected="false">Diário de episódios</button></div>
    <section id="detail-themes"><div id="themes" class="msg">Carregando músicas e comentários salvos…</div></section>
    <section id="detail-experience" class="hidden"><div id="experience-content" class="msg">Carregando…</div></section>
@@ -673,6 +677,34 @@ async function openAnime(id){
     renderThemeList(id,themeList,note,true);
   }
   loadDiary(id);loadExperience(id);
+}
+
+async function refreshOpenAnimeData(id,button){
+  const status=$("anime-refresh-status");
+  if(!button||button.disabled||activeDiaryAnime!==id)return;
+  button.disabled=true;button.textContent="Atualizando…";if(status)status.textContent="Buscando dados atuais no Firestore…";
+  try{
+    // Atualiza apenas os documentos vinculados ao anime aberto, ignorando o TTL local.
+    const freshNote=await hubFB.getAnimeNote(id,{refresh:true});
+    let themes=[],apiAvailable=true;
+    try{themes=await fetchThemes(id)}catch(err){apiAvailable=false;}
+    const themeList=themes.length?themes:(Array.isArray(freshNote.themeCatalog)?freshNote.themeCatalog:[]);
+    const previousScoreSlugs=Object.keys(SONG_SCORES).filter(key=>key.startsWith(`${id}:`)).map(key=>key.slice(String(id).length+1));
+    const slugs=[...new Set([...themeList.map(t=>t.slug),...Object.keys(freshNote.themeComments||{}),...Object.values(PROVISIONAL_THEME_SLUGS),...previousScoreSlugs])];
+    const freshScores=slugs.length?await hubFB.getSongScoresForAnime(id,slugs,{refresh:true}):{};
+    const freshLogs=await hubFB.getLogs(id,{refresh:true});
+    if(activeDiaryAnime!==id||!$("dlg").open)return;
+    Object.keys(SONG_SCORES).filter(key=>key.startsWith(`${id}:`)).forEach(key=>delete SONG_SCORES[key]);
+    Object.assign(SONG_SCORES,freshScores);
+    renderThemeList(id,themeList,freshNote,!apiAvailable);
+    renderDiaryEntries(id,freshLogs,!!fbUser);
+    await loadExperience(id);
+    if(status)status.textContent="Dados atualizados com sucesso.";
+  }catch(err){
+    if(status)status.textContent=`Falha ao atualizar: ${err.code||err.message||"erro desconhecido"}. Os dados exibidos foram mantidos.`;
+  }finally{
+    if(button.isConnected){button.disabled=false;button.textContent="↻ Atualizar dados deste anime";}
+  }
 }
 
 async function loadExperience(id){
@@ -930,6 +962,8 @@ document.addEventListener("click",async e=>{
   if(editDate){const date=editDate.closest("form").querySelector('input[name="watchedAt"]');date.disabled=editDate.checked;if(editDate.checked)date.value="";else if(!date.value)date.value=localDateISO();return;}
   const forgot=e.target.closest("#diary-forgot");
   if(forgot){$("diary-date").disabled=forgot.checked;if(forgot.checked)$("diary-date").value="";else if(!$("diary-date").value)$("diary-date").value=localDateISO();return;}
+  const refreshAnime=e.target.closest("[data-refresh-anime]");
+  if(refreshAnime){const id=Number(refreshAnime.dataset.refreshAnime);if(Number.isFinite(id))await refreshOpenAnimeData(id,refreshAnime);return;}
   const associate=e.target.closest("[data-associate-provisional]");
   if(associate){
     const kind=associate.dataset.associateProvisional,select=document.getElementById(`associate-${kind}`),status=document.getElementById(`associate-status-${kind}`),targetSlug=select?.value;
@@ -1004,7 +1038,7 @@ $("import-file").addEventListener("change",async e=>{
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 import {getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
-import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,onSnapshot,doc,setDoc,deleteDoc,serverTimestamp,addDoc,getDocs,getDoc,getDocFromServer,getDocsFromCache,getDocsFromServer,getDocFromCache,query,where,updateDoc,writeBatch} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
+import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,onSnapshot,doc,setDoc,deleteDoc,deleteField,serverTimestamp,addDoc,getDocs,getDoc,getDocFromServer,getDocsFromCache,getDocsFromServer,getDocFromCache,query,where,updateDoc,writeBatch} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
 
 const app=initializeApp({
   apiKey:"AIzaSyCgHMZV_wIFOV4QuJi3bBRbu_iOXSJ1ahY",
@@ -1056,12 +1090,14 @@ window.hubFB={
   getAniListCache:async username=>{const entry=await cacheGet(`anilist:${username.toLowerCase()}`);return entry?{items:entry.data,savedAt:entry.savedAt}:null},
   saveAniListCache:(username,items)=>cacheSet(`anilist:${username.toLowerCase()}`,items),
   getSongScores:()=>freshOrCached("songScores",async()=>{const snap=await getDocs(collection(db,"songScores")),out={};snap.forEach(d=>out[d.id]=d.data().score);return out}),
-  getSongScoresForAnime:async(animeId,slugs)=>{
+  getSongScoresForAnime:async(animeId,slugs,{refresh=false}={})=>{
     const cacheKey=`songScoresAnime:${animeId}`,cached=await cacheGet(cacheKey),now=Date.now();
-    const out=cached&&now-cached.savedAt<PUBLIC_CACHE_TTL?{...cached.data}:{};
+    const cacheValid=cached&&now-cached.savedAt<PUBLIC_CACHE_TTL;
+    const out=!refresh&&cacheValid?{...cached.data}:{};
     const missing=slugs.filter(slug=>!Object.prototype.hasOwnProperty.call(out,`${animeId}:${slug}`));
-    if(!missing.length&&cached&&now-cached.savedAt<PUBLIC_CACHE_TTL)return out;
-    await Promise.all((cached&&now-cached.savedAt<PUBLIC_CACHE_TTL?missing:slugs).map(async slug=>{const key=`${animeId}:${slug}`,snap=await getDoc(doc(db,"songScores",key));if(snap.exists())out[key]=snap.data().score;else out[key]=null}));
+    if(!refresh&&!missing.length&&cacheValid)return out;
+    const requested=refresh?slugs:(cacheValid?missing:slugs);
+    await Promise.all(requested.map(async slug=>{const key=`${animeId}:${slug}`,ref=doc(db,"songScores",key),snap=refresh?await getDocFromServer(ref):await getDoc(ref);if(snap.exists())out[key]=snap.data().score;else out[key]=null}));
     await cacheSet(cacheKey,out);return out;
   },
   save:async(key,n)=>{requireOwner();await setDoc(doc(db,"songScores",key),{score:n,updatedAt:serverTimestamp()},{merge:true});const scores=(await cacheGet("songScores"))?.data||{};scores[key]=n;await cacheSet("songScores",scores);const animeId=key.split(":")[0],byAnime=(await cacheGet(`songScoresAnime:${animeId}`))?.data||{};byAnime[key]=n;await cacheSet(`songScoresAnime:${animeId}`,byAnime)},
@@ -1211,9 +1247,13 @@ window.hubFB={
     if(!sourceSnap.exists()&&!sourceComment)throw new Error("Não há nota ou comentário provisório para transferir.");
     const batch=writeBatch(db);
     if(sourceSnap.exists()){batch.set(targetRef,{...sourceSnap.data(),updatedAt:serverTimestamp()},{merge:true});batch.delete(sourceRef);}
-    const nextComments={...comments};
-    delete nextComments[sourceSlug];if(sourceComment)nextComments[targetSlug]=sourceComment;
-    batch.set(noteRef,{animeId:Number(animeId),themeComments:nextComments,updatedAt:serverTimestamp()},{merge:true});
+    // Remove explicitamente a chave provisória do mapa aninhado no Firestore.
+    // merge:true não remove campos omitidos de mapas; por isso usamos deleteField().
+    if(noteSnap.exists()){
+      const commentUpdate={[`themeComments.${sourceSlug}`]:deleteField(),updatedAt:serverTimestamp()};
+      if(sourceComment)commentUpdate[`themeComments.${targetSlug}`]=sourceComment;
+      batch.update(noteRef,commentUpdate);
+    }
     await batch.commit();
     const old=(await cacheGet(noteCacheKey(animeId)))?.data||note,updatedComments={...(old.themeComments||{})};
     delete updatedComments[sourceSlug];if(sourceComment)updatedComments[targetSlug]=sourceComment;
@@ -1225,7 +1265,11 @@ window.hubFB={
     return true;
   },
   addLog:async({animeId,episode,watchedAt,comment})=>{requireOwner();await addDoc(logsPath(),{animeId:Number(animeId),episode:Number(episode),watchedAt,comment,createdAt:serverTimestamp()});await cacheDelete(logsCacheKey(animeId));await cacheDelete("stats:episodeLogs")},
-  getLogs:async animeId=>freshOrCached(logsCacheKey(animeId),async()=>{const q=query(logsPath(),where("animeId","==",Number(animeId)));const snap=await getDocs(q);return snap.docs.map(d=>({id:d.id,...d.data(),createdAtMs:d.data().createdAt?.toMillis?.()||0}))}),
+  getLogs:async (animeId,{refresh=false}={})=>{
+    const key=logsCacheKey(animeId),q=query(logsPath(),where("animeId","==",Number(animeId)));
+    if(refresh){const snap=await getDocsFromServer(q),logs=snap.docs.map(d=>({id:d.id,...d.data(),createdAtMs:d.data().createdAt?.toMillis?.()||0}));await cacheSet(key,logs);return logs;}
+    return freshOrCached(key,async()=>{const snap=await getDocs(q);return snap.docs.map(d=>({id:d.id,...d.data(),createdAtMs:d.data().createdAt?.toMillis?.()||0}))});
+  },
   updateLog:async(id,changes)=>{requireOwner();await updateDoc(doc(db,"users",OWNER_UID,"episodeLogs",id),{...changes,updatedAt:serverTimestamp()});await cacheDelete(logsCacheKey(window.activeDiaryAnime));await cacheDelete("stats:episodeLogs")},
   deleteLog:async id=>{requireOwner();await deleteDoc(doc(db,"users",OWNER_UID,"episodeLogs",id));await cacheDelete(logsCacheKey(window.activeDiaryAnime));await cacheDelete("stats:episodeLogs")} 
 };
