@@ -411,8 +411,8 @@ const bg=u=>u?`style="background-image:url('${u}')"`:"";
 let animes=[],tab="now",fbUser=null,fbErr=null,loadingCatalog=false;
 const byId=id=>animes.find(a=>a.id===id);
 const themeCache=new Map();
-const PROVISIONAL_THEME_SLUGS={OP:"__PROVISIONAL_OP__",ED:"__PROVISIONAL_ED__"};
-const themeTypeFromSlug=slug=>{const value=String(slug||"").toUpperCase();if(value===PROVISIONAL_THEME_SLUGS.OP)return "OP";if(value===PROVISIONAL_THEME_SLUGS.ED)return "ED";return value.match(/^(OP|ED)/)?.[1]||""};
+const PROVISIONAL_THEME_SLUGS={OP:"provisional_op",ED:"provisional_ed"};
+const themeTypeFromSlug=slug=>{const value=String(slug||"");if(value===PROVISIONAL_THEME_SLUGS.OP)return "OP";if(value===PROVISIONAL_THEME_SLUGS.ED)return "ED";return value.toUpperCase().match(/^(OP|ED)/)?.[1]||""};
 const isProvisionalThemeSlug=slug=>Object.values(PROVISIONAL_THEME_SLUGS).includes(slug);
 
 async function fetchList(user){
