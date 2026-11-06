@@ -355,7 +355,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 <div class="wrap">
   <p class="sub" id="sub"></p>
   <div class="sync-tools">
-    <span class="sync-status" id="sync-status" role="status">Entre com Google para manter seu catálogo salvo.</span>
+    <span class="sync-status" id="sync-status" role="status">Catálogo público via AniList; cache local por até 24 horas.</span>
     <div class="sync-actions"><button id="export-data" type="button" class="hidden">Exportar meus dados (JSON)</button><button id="import-data" type="button" class="hidden">Importar backup (JSON)</button><input id="import-file" type="file" accept=".json,application/json" class="hidden" aria-label="Selecionar backup JSON"></div>
   </div>
   <p class="meta" id="me"></p>
@@ -378,6 +378,8 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 <script>
 /* ============ CONFIGURAÇÃO ============ */
 const OWNER_ANILIST_USERNAME = "Clpher";
+const OWNER_UID = "X569uLFYFgcX6i9mbEVsylUX7Li1";
+window.HUB_OWNER_UID = OWNER_UID;
 /* Notas das músicas (0-100). Chave: "IDdoAnimeNoAniList:OP1" (ou ED1, OP2...).
    Use o botão "Copiar linha" na janela do anime e cole aqui. */
 const SONG_SCORES = {
@@ -475,16 +477,19 @@ function renderTop(){
   $("view").innerHTML=ranking(l.map(a=>({id:a.id,cover:a.cover,title:a.title,sub:when(a),score:a.score})));
 }
 async function renderHall(){
+  $("view").innerHTML='<div class="msg">Carregando notas das músicas…</div>';
+  try{
+    const scores=await hubFB.getSongScores();
+    Object.keys(SONG_SCORES).forEach(k=>delete SONG_SCORES[k]);Object.assign(SONG_SCORES,scores);
+  }catch(e){
+    $("view").innerHTML=`<div class="msg err">Não consegui carregar as notas das músicas (${esc(e.code||e.message)}).</div>`;return;
+  }
   const keys=Object.keys(SONG_SCORES);
-  if(!keys.length){$("view").innerHTML=`<div class="msg">Ainda não há músicas com nota. ${fbErr?`Não consegui ler o banco (${fbErr}). Confira as regras do Firestore.`:"Entre com o Google, abra um anime e dê a nota (0 a 10) a uma música."}</div>`;return}
-  $("view").innerHTML='<div class="msg">Buscando músicas salvas…</div>';
+  if(!keys.length){$("view").innerHTML='<div class="msg">Ainda não há músicas com nota.</div>';return}
   const ids=[...new Set(keys.map(k=>+k.split(":")[0]))],items=[];
-  const notesById=fbUser?await hubFB.getAllAnimeNotes().catch(()=>({})):{};
   await Promise.all(ids.map(async id=>{try{
-    let th;try{th=await fetchThemes(id);if(fbUser&&th.length)await hubFB.saveThemeCatalog(id,th)}
-    catch(e){th=notesById[String(id)]?.themeCatalog||[]}
-    const a=byId(id);
-    th.forEach(t=>{const sc=SONG_SCORES[`${id}:${t.slug}`];if(sc!=null)items.push({type:t.type,season:a?.season,year:a?.year,id,cover:a?.cover||"",title:t.title,sub:`${t.artist} · ${a?.title||"Anime "+id}`,score:sc,song:true})})
+    const th=await fetchThemes(id),a=byId(id);
+    th.forEach(t=>{const sc=SONG_SCORES[`${id}:${t.slug}`];if(sc!=null)items.push({type:t.type,season:a?.season,year:a?.year,id,cover:a?.cover||"",title:t.title,sub:`${t.artist} · ${a?.title||"Anime "+id}`,score:sc,song:true})});
   }catch(e){}}));
   const l=filtered(items.filter(i=>i.type===$("type").value)).sort((a,b)=>b.score-a.score).slice(0,+$("limit").value);
   $("view").innerHTML=ranking(l);
@@ -517,22 +522,28 @@ async function openAnime(id){
    <section id="detail-experience" class="hidden"><div id="experience-content" class="msg">Carregando…</div></section>
    <section id="detail-diary" class="hidden"><div id="diary-content" class="msg">Carregando diário…</div></section></div>`;
   d.showModal();
-  let note={};if(fbUser){try{note=await hubFB.getAnimeNote(id)}catch(e){}}
+  let note={};try{note=await hubFB.getAnimeNote(id)}catch(e){}
   try{
-    const th=await fetchThemes(id);
-    if(th.length){if(fbUser)hubFB.saveThemeCatalog(id,th).catch(()=>{});renderThemeList(id,th,note,false)}
-    else renderThemeList(id,note.themeCatalog||[],note,!note.themeCatalog?.length);
+    const th=await fetchThemes(id),themeList=th.length?th:(note.themeCatalog||[]);
+    if(themeList.length){try{Object.assign(SONG_SCORES,await hubFB.getSongScoresForAnime(id,themeList.map(t=>t.slug)))}catch(e){}}
+    renderThemeList(id,themeList,note,!th.length);
   }catch(e){renderThemeList(id,note.themeCatalog||[],note,true)}
-  if(!fbUser){$("diary-content").innerHTML='<div class="msg">Entre com o Google para criar e consultar seu diário pessoal.</div>';$("experience-content").innerHTML='<div class="msg">Entre com o Google para salvar suas informações pessoais.</div>'}
-  else{loadDiary(id);loadExperience(id)}
+  loadDiary(id);loadExperience(id);
 }
 
 async function loadExperience(id){
-  const root=$("experience-content");if(!fbUser){root.innerHTML='<div class="msg">Entre com o Google para salvar suas informações pessoais.</div>';return}
-  root.className="msg";root.textContent="Carregando suas informações…";
+  const root=$("experience-content");
+  root.className="msg";root.textContent="Carregando informações…";
   try{
     const data=await hubFB.getAnimeNote(id);if(activeDiaryAnime!==id||!$("dlg").open)return;
     const platforms=Array.isArray(data.platforms)?data.platforms:[];
+    const languageLabel=({sub:"Legendado",dub:"Dublado",other:"Outro"})[data.language]||"Não informado";
+    if(!fbUser){
+      const hasData=!!(data.language||platforms.length||data.otherPlatform||data.viewingNotes);
+      root.className="";
+      root.innerHTML=hasData?`<div class="experience-public"><p><span class="meta">Idioma</span><br><strong>${esc(languageLabel)}</strong></p><p><span class="meta">Plataforma(s)</span><br><strong>${esc([...platforms,...(data.otherPlatform?[data.otherPlatform]:[])].join(", ")||"Não informado")}</strong></p><p><span class="meta">Outras informações</span></p><p style="white-space:pre-wrap">${esc(data.viewingNotes||"Não informado")}</p></div>`:'<div class="msg">Ainda não há informações públicas sobre como assisti a este anime.</div>';
+      return;
+    }
     root.className="";
     root.innerHTML=`<p class="diary-intro">Informações opcionais sobre como você assistiu a este anime. Elas ficam salvas separadamente dos dados do AniList.</p>
       <form class="experience-form" id="experience-form">
@@ -544,11 +555,11 @@ async function loadExperience(id){
       </form>`;
     $("experience-form").addEventListener("submit",async ev=>{
       ev.preventDefault();const btn=ev.currentTarget.querySelector('button[type="submit"]'),status=$("experience-status");btn.disabled=true;status.textContent="Salvando…";
-      const platforms=[...$("watch-platforms").selectedOptions].map(o=>o.value);
-      try{await hubFB.saveAnimeNote(id,{language:$("watch-language").value,platforms,otherPlatform:$("watch-platform-other").value.trim(),viewingNotes:$("watch-notes").value.trim()});status.textContent="Salvo!";}
+      const selectedPlatforms=[...$("watch-platforms").selectedOptions].map(o=>o.value);
+      try{await hubFB.saveAnimeNote(id,{language:$("watch-language").value,platforms:selectedPlatforms,otherPlatform:$("watch-platform-other").value.trim(),viewingNotes:$("watch-notes").value.trim()});status.textContent="Salvo!";}
       catch(err){status.textContent="Não foi possível salvar: "+(err.code||err.message)}finally{btn.disabled=false}
     });
-  }catch(err){root.className="";root.innerHTML=`<div class="msg err">Não consegui carregar suas informações (${esc(err.code||err.message)}).</div>`}
+  }catch(err){root.className="";root.innerHTML=`<div class="msg err">Não consegui carregar as informações (${esc(err.code||err.message)}).</div>`}
 }
 
 let activeDiaryAnime=null;window.activeDiaryAnime=null;window.addEventListener("diary-auth-refresh",()=>{if(activeDiaryAnime!=null){loadDiary(activeDiaryAnime);loadExperience(activeDiaryAnime)}});
@@ -558,35 +569,34 @@ function diaryDate(value){
   const d=new Date(value+"T12:00:00");
   return Number.isNaN(d.getTime())?value:d.toLocaleDateString("pt-BR");
 }
-function renderDiaryEntries(id,logs){
+function renderDiaryEntries(id,logs,editable=false){
   const a=byId(id),next=(a?.progress||0)+1;
   const sorted=[...logs].sort((x,y)=>String(y.watchedAt||"").localeCompare(String(x.watchedAt||""))||((y.createdAtMs||0)-(x.createdAtMs||0)));
   $("diary-content").className="";
-  $("diary-content").innerHTML=`<p class="diary-intro">Registre suas impressões episódio por episódio. Você pode adicionar mais de uma anotação ao mesmo episódio.</p>
+  const form=editable?`<p class="diary-intro">Registre suas impressões episódio por episódio. Você pode adicionar mais de uma anotação ao mesmo episódio.</p>
    <form class="diary-form" id="diary-form">
     <div><label for="diary-episode">Episódio</label><input id="diary-episode" type="number" min="0" step="1" value="${next}" required></div>
     <div><label for="diary-date">Data em que assistiu</label><input id="diary-date" type="date" value="${localDateISO()}"><label style="display:flex;align-items:center;gap:7px;margin-top:8px"><input id="diary-forgot" type="checkbox" style="width:auto"> Esqueci a data</label></div>
     <div class="wide-field"><label for="diary-comment">Seu comentário</label><textarea id="diary-comment" maxlength="10000" placeholder="O que aconteceu? O que achou do episódio?" required></textarea></div>
     <button type="submit">Adicionar registro</button><span class="diary-status" id="diary-status" role="status"></span>
-   </form>
-   <h3 style="font:600 1.2rem var(--serif);margin:0 0 12px">Histórico <span class="meta">${sorted.length} registro(s)</span></h3>
-   <div class="diary-list">${sorted.length?sorted.map(log=>`<article class="diary-entry"><div class="diary-entry-head"><strong>Episódio ${Number(log.episode)||0}</strong><span class="meta">${diaryDate(log.watchedAt)}</span></div><p>${esc(log.comment)}</p><div class="diary-actions"><button type="button" data-edit-log="${esc(log.id)}">Editar</button><button type="button" data-delete-log="${esc(log.id)}">Excluir</button></div></article>`).join(""):'<div class="msg">Você ainda não registrou nenhum episódio deste anime.</div>'}</div>`;
-  const form=$("diary-form");
-  form.addEventListener("submit",async ev=>{
+   </form>`:'<p class="diary-intro">Diário público de episódios e impressões.</p>';
+  $("diary-content").innerHTML=form+`<h3 style="font:600 1.2rem var(--serif);margin:0 0 12px">Histórico <span class="meta">${sorted.length} registro(s)</span></h3>
+   <div class="diary-list">${sorted.length?sorted.map(log=>`<article class="diary-entry"><div class="diary-entry-head"><strong>Episódio ${Number(log.episode)||0}</strong><span class="meta">${diaryDate(log.watchedAt)}</span></div><p>${esc(log.comment)}</p>${editable?`<div class="diary-actions"><button type="button" data-edit-log="${esc(log.id)}">Editar</button><button type="button" data-delete-log="${esc(log.id)}">Excluir</button></div>`:""}</article>`).join(""):'<div class="msg">Ainda não há registros públicos para este anime.</div>'}</div>`;
+  if(!editable)return;
+  const formEl=$("diary-form");
+  formEl.addEventListener("submit",async ev=>{
     ev.preventDefault();const status=$("diary-status"),episode=Number($("diary-episode").value),watchedAt=$("diary-forgot").checked?"":$("diary-date").value,comment=$("diary-comment").value.trim();
     if(!Number.isInteger(episode)||episode<0||(!$("diary-forgot").checked&&!watchedAt)||!comment){status.textContent="Preencha episódio, data (ou marque Esqueci) e comentário.";return}
-    const submit=form.querySelector('button[type="submit"]');submit.disabled=true;status.textContent="Salvando…";
+    const submit=formEl.querySelector('button[type="submit"]');submit.disabled=true;status.textContent="Salvando…";
     try{await hubFB.addLog({animeId:id,episode,watchedAt,comment});await loadDiary(id);}
     catch(err){status.textContent="Não foi possível salvar: "+(err.code||err.message);submit.disabled=false;}
   });
 }
 async function loadDiary(id){
   activeDiaryAnime=id;
-  if(fbUser){try{const note=await hubFB.getAnimeNote(id);Object.entries(note.themeComments||{}).forEach(([slug,comment])=>{const key=`${id}:${slug}`,field=document.getElementById(`tc-${key}`);if(field)field.value=comment||""})}catch(e){}}
-  if(!fbUser){$("diary-content").innerHTML='<div class="msg">Entre com o Google para criar e consultar seu diário pessoal.</div>';return}
   $("diary-content").className="msg";$("diary-content").textContent="Carregando diário…";
-  try{const logs=await hubFB.getLogs(id);if(activeDiaryAnime===id&&$("dlg").open)renderDiaryEntries(id,logs)}
-  catch(err){$("diary-content").innerHTML=`<div class="msg err">Não consegui carregar o diário (${esc(err.code||err.message)}). Confira as regras do Firestore.</div>`}
+  try{const logs=await hubFB.getLogs(id);if(activeDiaryAnime===id&&$("dlg").open)renderDiaryEntries(id,logs,!!fbUser)}
+  catch(err){$("diary-content").innerHTML=`<div class="msg err">Não consegui carregar o diário (${esc(err.code||err.message)}). Confira se a leitura pública está liberada nas regras do Firestore.</div>`}
 }
 
 function render(){
@@ -610,8 +620,8 @@ function formatSyncTime(value){
 async function performAniListSync(user){
   $("sync-status").textContent="Sincronizando com o AniList…";
   const fresh=await fetchList(user);
-  if(fbUser){await hubFB.saveAnimeCatalog(user,fresh);renderCatalog(fresh,user,"Catálogo atualizado e salvo no Firebase");}
-  else renderCatalog(fresh,user,"Lista carregada do AniList (entre com Google para salvar seu catálogo)");
+  await hubFB.saveAniListCache(user,fresh);
+  renderCatalog(fresh,user,"Catálogo atualizado e armazenado neste dispositivo");
   const now=new Date();$("sync-status").textContent=`${formatSyncTime(now)} · ${fresh.length} animes`;
   return fresh;
 }
@@ -620,27 +630,19 @@ async function load({sync=false}={}){
   loadingCatalog=true;
   const button=$("load");button.disabled=true;
   try{
-    if(fbUser&&!sync){
-      $("sub").textContent="Carregando seu catálogo salvo…";
-      const saved=await hubFB.getAnimeCatalog(user);
-      if(saved.items.length){
-        renderCatalog(saved.items,user,saved.source==="cache"?"Catálogo salvo neste dispositivo":"Catálogo salvo no Firebase");
-        const last=saved.lastSyncedAt?.toMillis?saved.lastSyncedAt.toMillis():saved.lastSyncedAt?new Date(saved.lastSyncedAt).getTime():0;
-        $("sync-status").textContent=`${formatSyncTime(last||null)} · ${saved.items.length} animes`;
-        const stale=!last||(Date.now()-last)>=SYNC_INTERVAL_MS;
-        if(!stale){return}
-        // O catálogo local aparece imediatamente; a atualização ocorre em seguida.
-        try{await performAniListSync(user)}
-        catch(syncError){$("sync-status").textContent=`${formatSyncTime(last||null)} · Não foi possível atualizar: ${syncError.message}`;$("sub").textContent=`Catálogo salvo preservado. O AniList não respondeu; você continua usando seus dados locais.`}
-        return;
+    if(!sync){
+      const cached=await hubFB.getAniListCache(user).catch(()=>null);
+      if(cached?.items?.length){
+        renderCatalog(cached.items,user,"Catálogo carregado do cache local");
+        const last=Number(cached.savedAt)||0,stale=!last||(Date.now()-last)>=SYNC_INTERVAL_MS;
+        $("sync-status").textContent=`${formatSyncTime(last||null)} · ${cached.items.length} animes${stale?" · atualização necessária":" · cache válido por até 24h"}`;
+        if(!stale)return;
       }
-      // Primeiro acesso: importa a lista do AniList uma única vez.
-      sync=true;
     }
     await performAniListSync(user);
   }catch(e){
     if(animes.length){$("sub").textContent=`Não foi possível sincronizar com o AniList. Exibindo os ${animes.length} animes já carregados. (${e.message})`;$("sync-status").textContent="Catálogo local preservado; sincronização indisponível.";}
-    else{$("sub").textContent="";$("view").innerHTML=`<div class="msg err">Não consegui carregar "${esc(user)}": ${esc(e.message)}. ${fbUser?"Seus dados salvos não foram alterados.":"Confira o usuário e se o perfil é público."}</div>`;}
+    else{$("sub").textContent="";$("view").innerHTML=`<div class="msg err">Não consegui carregar "${esc(user)}": ${esc(e.message)}. Confira se o perfil é público.</div>`;}
   }finally{loadingCatalog=false;button.disabled=false;}
 }
 document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>{tab=b.dataset.tab;
@@ -651,7 +653,7 @@ function updateMe(){
   $("login").textContent=fbUser?"Sair":"Entrar com Google";
   $("export-data").classList.toggle("hidden",!fbUser);
   $("import-data").classList.toggle("hidden",!fbUser);
-  if(!fbUser)$("sync-status").textContent="Entre com Google para sincronizar e manter seu catálogo salvo no Firestore.";
+  if(!fbUser)$("sync-status").textContent="Catálogo público via AniList; entre com a conta proprietária para editar seus dados.";
 }
 window.addEventListener("fb-user",e=>{fbUser=e.detail;updateMe();load({sync:false})});
 window.addEventListener("fb-error",e=>{fbErr=e.detail;if(animes.length&&tab==="hall")render()});
@@ -698,10 +700,10 @@ document.addEventListener("click",async e=>{
   if(sv){
     const key=sv.dataset.save,v=document.getElementById("sc-"+key).value.trim().replace(",","."),st=document.getElementById("st-"+key);
     try{
-      if(v===""){await hubFB.remove(key);st.textContent="nota removida";return}
+      if(v===""){await hubFB.remove(key);delete SONG_SCORES[key];st.textContent="nota removida";return}
       const n=parseFloat(v);
       if(isNaN(n)||n<0||n>10){st.textContent="use um número de 0 a 10";return}
-      await hubFB.save(key,n);st.textContent="salvo";
+      await hubFB.save(key,n);SONG_SCORES[key]=n;st.textContent="salvo";
     }catch(err){st.textContent="erro: "+(err.code||err.message)}
     return;
   }
@@ -761,15 +763,57 @@ const app=initializeApp({
   appId:"1:335710840559:web:1d99e078383a9819a99d1a"
 });
 const auth=getAuth(app);
-/* cache local: funciona sem internet e sincroniza quando voltar */
+const OWNER_UID=window.HUB_OWNER_UID;
+/* O cache persistente do Firestore usa IndexedDB; este cache de aplicação acrescenta TTL por tipo de dado. */
 const db=initializeFirestore(app,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
 const emit=(n,d)=>window.dispatchEvent(new CustomEvent(n,{detail:d}));
+const CACHE_DB_NAME="hub-animes-public-cache-v1",CACHE_STORE="entries",PUBLIC_CACHE_TTL=6*60*60*1000;
+let cacheDbPromise;
+function openCacheDb(){
+  if(cacheDbPromise)return cacheDbPromise;
+  cacheDbPromise=new Promise((resolve,reject)=>{
+    const req=indexedDB.open(CACHE_DB_NAME,1);
+    req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains(CACHE_STORE))req.result.createObjectStore(CACHE_STORE)};
+    req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+  });
+  return cacheDbPromise;
+}
+async function cacheGet(key){try{const d=await openCacheDb();return await new Promise((resolve,reject)=>{const r=d.transaction(CACHE_STORE,"readonly").objectStore(CACHE_STORE).get(key);r.onsuccess=()=>resolve(r.result||null);r.onerror=()=>reject(r.error)})}catch(e){return null}}
+async function cacheSet(key,data){try{const d=await openCacheDb();await new Promise((resolve,reject)=>{const tx=d.transaction(CACHE_STORE,"readwrite");tx.objectStore(CACHE_STORE).put({data,savedAt:Date.now()},key);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}catch(e){console.warn("Cache local indisponível",e)}}
+async function cacheDelete(key){try{const d=await openCacheDb();await new Promise((resolve,reject)=>{const tx=d.transaction(CACHE_STORE,"readwrite");tx.objectStore(CACHE_STORE).delete(key);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}catch(e){}}
+const isOwner=()=>auth.currentUser?.uid===OWNER_UID;
+const requireOwner=()=>{if(!isOwner())throw new Error("Somente a conta proprietária pode editar este Hub.")};
+const notePath=animeId=>doc(db,"users",OWNER_UID,"animeNotes",String(animeId));
+const logsPath=()=>collection(db,"users",OWNER_UID,"episodeLogs");
+const noteCacheKey=id=>`note:${id}`,logsCacheKey=id=>`logs:${id}`;
+async function freshOrCached(key,fetcher){
+  const cached=await cacheGet(key);
+  if(cached&&Date.now()-cached.savedAt<PUBLIC_CACHE_TTL)return cached.data;
+  try{const fresh=await fetcher();await cacheSet(key,fresh);return fresh}
+  catch(err){if(cached)return cached.data;throw err}
+}
 
 window.hubFB={
-  login:()=>signInWithPopup(auth,new GoogleAuthProvider()),
+  login:async()=>{
+    if(auth.currentUser&&!isOwner())await signOut(auth);
+    const result=await signInWithPopup(auth,new GoogleAuthProvider());
+    if(result.user.uid!==OWNER_UID){await signOut(auth);throw new Error("Esta conta Google não é a proprietária do Hub.")}
+    return result;
+  },
   logout:()=>signOut(auth),
-  save:(key,n)=>setDoc(doc(db,"songScores",key),{score:n,updatedAt:serverTimestamp()}),
-  remove:key=>deleteDoc(doc(db,"songScores",key)),
+  getAniListCache:async username=>{const entry=await cacheGet(`anilist:${username.toLowerCase()}`);return entry?{items:entry.data,savedAt:entry.savedAt}:null},
+  saveAniListCache:(username,items)=>cacheSet(`anilist:${username.toLowerCase()}`,items),
+  getSongScores:()=>freshOrCached("songScores",async()=>{const snap=await getDocs(collection(db,"songScores")),out={};snap.forEach(d=>out[d.id]=d.data().score);return out}),
+  getSongScoresForAnime:async(animeId,slugs)=>{
+    const cacheKey=`songScoresAnime:${animeId}`,cached=await cacheGet(cacheKey),now=Date.now();
+    const out=cached&&now-cached.savedAt<PUBLIC_CACHE_TTL?{...cached.data}:{};
+    const missing=slugs.filter(slug=>!Object.prototype.hasOwnProperty.call(out,`${animeId}:${slug}`));
+    if(!missing.length&&cached&&now-cached.savedAt<PUBLIC_CACHE_TTL)return out;
+    await Promise.all((cached&&now-cached.savedAt<PUBLIC_CACHE_TTL?missing:slugs).map(async slug=>{const key=`${animeId}:${slug}`,snap=await getDoc(doc(db,"songScores",key));if(snap.exists())out[key]=snap.data().score;else out[key]=null}));
+    await cacheSet(cacheKey,out);return out;
+  },
+  save:async(key,n)=>{requireOwner();await setDoc(doc(db,"songScores",key),{score:n,updatedAt:serverTimestamp()},{merge:true});const scores=(await cacheGet("songScores"))?.data||{};scores[key]=n;await cacheSet("songScores",scores);const animeId=key.split(":")[0],byAnime=(await cacheGet(`songScoresAnime:${animeId}`))?.data||{};byAnime[key]=n;await cacheSet(`songScoresAnime:${animeId}`,byAnime)},
+  remove:async key=>{requireOwner();await deleteDoc(doc(db,"songScores",key));const scores=(await cacheGet("songScores"))?.data||{};delete scores[key];await cacheSet("songScores",scores);const animeId=key.split(":")[0],byAnime=(await cacheGet(`songScoresAnime:${animeId}`))?.data||{};delete byAnime[key];await cacheSet(`songScoresAnime:${animeId}`,byAnime)},
   getAnimeCatalog:async username=>{
     if(!auth.currentUser)throw new Error("Faça login para consultar seu catálogo salvo.");
     const ref=collection(db,"users",auth.currentUser.uid,"animeCatalog");
@@ -876,33 +920,24 @@ window.hubFB={
       for(const op of operations.slice(i,i+400))batch.set(op.ref,op.data,{merge:true});
       await batch.commit();
     }
+    await cacheDelete("songScores");
+    for(const row of backup.data.animeNotes)await cacheDelete(noteCacheKey(row.id));
+    for(const row of backup.data.episodeLogs)await cacheDelete(logsCacheKey(row.animeId));
     return {counts:validation.counts,total:validation.total};
   },
-  getAnimeNote:async animeId=>{if(!auth.currentUser)throw new Error("Faça login para consultar suas informações.");const snap=await getDoc(doc(db,"users",auth.currentUser.uid,"animeNotes",String(animeId)));return snap.exists()?snap.data():{}},
-  saveAnimeNote:(animeId,data)=>{if(!auth.currentUser)throw new Error("Faça login para salvar suas informações.");return setDoc(doc(db,"users",auth.currentUser.uid,"animeNotes",String(animeId)),{animeId:Number(animeId),...data,updatedAt:serverTimestamp()},{merge:true})},
-  saveThemeComment:async(animeId,slug,comment)=>{if(!auth.currentUser)throw new Error("Faça login para salvar comentários.");return setDoc(doc(db,"users",auth.currentUser.uid,"animeNotes",String(animeId)),{animeId:Number(animeId),themeComments:{[slug]:comment},updatedAt:serverTimestamp()},{merge:true})},
-  addLog:({animeId,episode,watchedAt,comment})=>{
-    if(!auth.currentUser)throw new Error("Faça login para salvar no diário.");
-    return addDoc(collection(db,"users",auth.currentUser.uid,"episodeLogs"),{animeId:Number(animeId),episode:Number(episode),watchedAt,comment,createdAt:serverTimestamp()});
-  },
-  getLogs:async animeId=>{
-    if(!auth.currentUser)throw new Error("Faça login para consultar o diário.");
-    const q=query(collection(db,"users",auth.currentUser.uid,"episodeLogs"),where("animeId","==",Number(animeId)));
-    const snap=await getDocs(q);return snap.docs.map(d=>({id:d.id,...d.data(),createdAtMs:d.data().createdAt?.toMillis?.()||0}));
-  },
-  updateLog:(id,changes)=>{
-    if(!auth.currentUser)throw new Error("Faça login para editar o diário.");
-    return updateDoc(doc(db,"users",auth.currentUser.uid,"episodeLogs",id),{...changes,updatedAt:serverTimestamp()});
-  },
-  deleteLog:id=>{
-    if(!auth.currentUser)throw new Error("Faça login para excluir do diário.");
-    return deleteDoc(doc(db,"users",auth.currentUser.uid,"episodeLogs",id));
-  }
+  getAnimeNote:async animeId=>freshOrCached(noteCacheKey(animeId),async()=>{const snap=await getDoc(notePath(animeId));return snap.exists()?snap.data():{}}),
+  saveAnimeNote:async(animeId,data)=>{requireOwner();await setDoc(notePath(animeId),{animeId:Number(animeId),...data,updatedAt:serverTimestamp()},{merge:true});const old=(await cacheGet(noteCacheKey(animeId)))?.data||{};await cacheSet(noteCacheKey(animeId),{...old,...data});},
+  saveThemeComment:async(animeId,slug,comment)=>{requireOwner();await setDoc(notePath(animeId),{animeId:Number(animeId),themeComments:{[slug]:comment},updatedAt:serverTimestamp()},{merge:true});const old=(await cacheGet(noteCacheKey(animeId)))?.data||{};await cacheSet(noteCacheKey(animeId),{...old,themeComments:{...(old.themeComments||{}),[slug]:comment}})},
+  addLog:async({animeId,episode,watchedAt,comment})=>{requireOwner();await addDoc(logsPath(),{animeId:Number(animeId),episode:Number(episode),watchedAt,comment,createdAt:serverTimestamp()});await cacheDelete(logsCacheKey(animeId))},
+  getLogs:async animeId=>freshOrCached(logsCacheKey(animeId),async()=>{const q=query(logsPath(),where("animeId","==",Number(animeId)));const snap=await getDocs(q);return snap.docs.map(d=>({id:d.id,...d.data(),createdAtMs:d.data().createdAt?.toMillis?.()||0}))}),
+  updateLog:async(id,changes)=>{requireOwner();await updateDoc(doc(db,"users",OWNER_UID,"episodeLogs",id),{...changes,updatedAt:serverTimestamp()});await cacheDelete(logsCacheKey(window.activeDiaryAnime))},
+  deleteLog:async id=>{requireOwner();await deleteDoc(doc(db,"users",OWNER_UID,"episodeLogs",id));await cacheDelete(logsCacheKey(window.activeDiaryAnime))}
 };
-onAuthStateChanged(auth,u=>{emit("fb-user",u?{uid:u.uid,name:u.displayName||u.email}:null);if(window.activeDiaryAnime&&document.getElementById("detail-diary")&&!document.getElementById("detail-diary").classList.contains("hidden"))window.dispatchEvent(new CustomEvent("diary-auth-refresh"));});
-onSnapshot(collection(db,"songScores"),
-  snap=>{const m={};snap.forEach(d=>m[d.id]=d.data().score);emit("fb-scores",m)},
-  err=>emit("fb-error",err.code));
+onAuthStateChanged(auth,u=>{
+  emit("fb-user",u&&u.uid===OWNER_UID?{uid:u.uid,name:u.displayName||u.email}:null);
+  if(u&&u.uid!==OWNER_UID)signOut(auth).catch(()=>{});
+  if(window.activeDiaryAnime&&document.getElementById("detail-diary")&&!document.getElementById("detail-diary").classList.contains("hidden"))window.dispatchEvent(new CustomEvent("diary-auth-refresh"));
+});
 </script>
 </body>
 </html>
