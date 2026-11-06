@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hub de Animes</title>
+<title>Hub de Animes — Clpher</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,800;1,9..144,500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0a0d18;--panel:#131827;--line:#262d44;--text:#eef1f8;--muted:#98a2bd;--sun:#ff8a5c;--gold:#f2c46d;
@@ -141,6 +141,13 @@ button{ -webkit-tap-highlight-color:transparent }
 }
 .brand{font-size:1.38rem;letter-spacing:-.035em;text-shadow:0 2px 18px #0008}
 .who{align-items:center;gap:9px}
+.profile-chip{
+  display:inline-flex;align-items:center;gap:7px;min-height:42px;
+  padding:7px 16px;border:1px solid rgba(241,200,121,.28);
+  border-radius:999px;background:rgba(10,13,24,.62);
+  color:#c5cee2;font-size:.88rem;backdrop-filter:blur(16px);
+}
+.profile-chip strong{color:var(--gold);font-weight:600}
 .who input,.who button{
   min-height:42px;
   background:rgba(10,13,24,.62);
@@ -341,7 +348,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 <header class="hero" id="hero">
   <div class="top">
     <div class="brand">Hub de <i>animes</i></div>
-    <div class="who"><input id="user" aria-label="Usuário do AniList"><button id="load">Sincronizar AniList</button><button id="login">Entrar com Google</button></div>
+    <div class="who"><span class="profile-chip" aria-label="Perfil AniList fixo">AniList: <strong>Clpher</strong></span><button id="load" type="button">Sincronizar AniList</button><button id="login" type="button">Entrar com Google</button></div>
   </div>
   <div class="hero-in" id="heroin"><h1>Carregando…</h1></div>
 </header>
@@ -370,7 +377,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 
 <script>
 /* ============ CONFIGURAÇÃO ============ */
-const DEFAULT_USER = "Clpher";
+const OWNER_ANILIST_USERNAME = "Clpher";
 /* Notas das músicas (0-100). Chave: "IDdoAnimeNoAniList:OP1" (ou ED1, OP2...).
    Use o botão "Copiar linha" na janela do anime e cole aqui. */
 const SONG_SCORES = {
@@ -589,7 +596,6 @@ function render(){
 }
 function renderCatalog(items,user,sourceLabel){
   animes=items;
-  try{localStorage.setItem("hub_user",user)}catch(e){}
   const ys=[...new Set(animes.map(a=>a.year).filter(Boolean))].sort((a,b)=>b-a);
   $("year").innerHTML='<option value="">Todos os anos</option>'+ys.map(y=>`<option>${y}</option>`).join("");
   $("sub").textContent=`${sourceLabel} · ${animes.length} animes${fbUser?" · catálogo pessoal":""}.`;
@@ -610,7 +616,7 @@ async function performAniListSync(user){
   return fresh;
 }
 async function load({sync=false}={}){
-  const user=$("user").value.trim();if(!user||loadingCatalog)return;
+  const user=OWNER_ANILIST_USERNAME;if(loadingCatalog)return;
   loadingCatalog=true;
   const button=$("load");button.disabled=true;
   try{
@@ -740,9 +746,6 @@ $("import-file").addEventListener("change",async e=>{
     $("sync-status").textContent="A importação não foi concluída. Seus dados existentes foram preservados; se houve falha durante o envio, parte dos registros pode já ter sido mesclada.";
   }finally{button.disabled=false;button.textContent="Importar backup (JSON)";e.target.value=""}
 });
-$("user").addEventListener("keydown",e=>{if(e.key==="Enter")load()});
-let saved=null;try{saved=localStorage.getItem("hub_user")}catch(e){}
-$("user").value=saved||DEFAULT_USER;
 </script>
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
