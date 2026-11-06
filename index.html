@@ -99,6 +99,225 @@ button.cell:hover{transform:translateY(-4px)}
 input.sc{width:90px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
 .hidden{display:none}
 @media(max-width:560px){.pod .info small{display:none}}
+
+
+/* ============ REPAGINAÇÃO VISUAL — TESTE 01 ============ */
+:root{
+  --bg:#090c16;
+  --panel:#111827;
+  --line:rgba(164,178,211,.14);
+  --text:#f2f3f8;
+  --muted:#9aa6c1;
+  --sun:#ff916b;
+  --gold:#f1c879;
+  --surface:rgba(18,25,41,.78);
+  --serif:'Fraunces',Georgia,serif;
+  --sans:'Instrument Sans',system-ui,sans-serif;
+}
+html{scroll-behavior:smooth;scroll-padding-top:24px}
+body{
+  background:
+    radial-gradient(ellipse at 82% 12%,rgba(85,65,125,.13),transparent 34rem),
+    radial-gradient(ellipse at 8% 55%,rgba(38,75,111,.10),transparent 30rem),
+    var(--bg);
+  letter-spacing:.005em;
+}
+button{ -webkit-tap-highlight-color:transparent }
+.hero{
+  min-height:clamp(430px,59vh,620px);
+  background-color:#11182a;
+  background-position:center 35%;
+  isolation:isolate;
+}
+.hero::before{
+  background:
+    linear-gradient(0deg,var(--bg) 0%,rgba(9,12,22,.82) 7%,rgba(9,12,22,.05) 60%),
+    linear-gradient(90deg,rgba(7,10,19,.88) 0%,rgba(7,10,19,.58) 34%,rgba(7,10,19,.06) 78%),
+    linear-gradient(180deg,rgba(7,10,19,.34),transparent 28%);
+}
+.top{
+  padding:20px clamp(20px,4.2vw,64px);
+  z-index:2;
+}
+.brand{font-size:1.38rem;letter-spacing:-.035em;text-shadow:0 2px 18px #0008}
+.who{align-items:center;gap:9px}
+.who input,.who button{
+  min-height:42px;
+  background:rgba(10,13,24,.62);
+  border:1px solid rgba(255,255,255,.17);
+  backdrop-filter:blur(16px);
+  box-shadow:0 8px 28px rgba(0,0,0,.12);
+  transition:border-color .2s,background .2s,transform .2s;
+}
+.who input{width:190px;padding-inline:16px}
+.who button:hover{border-color:rgba(255,145,107,.72);background:rgba(20,25,40,.88);transform:translateY(-1px)}
+.hero-in{max-width:900px;padding:0 clamp(20px,4.2vw,64px) 54px}
+.hero-in small{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 11px;border:1px solid rgba(241,200,121,.28);
+  border-radius:999px;background:rgba(8,11,20,.42);backdrop-filter:blur(10px);
+  color:var(--gold);font-size:.82rem;letter-spacing:.025em;
+}
+.hero-in h1{
+  max-width:850px;
+  font-size:clamp(2.8rem,6.2vw,5.6rem);
+  letter-spacing:-.045em;
+  line-height:.98;
+  margin:15px 0 13px;
+  text-wrap:balance;
+}
+.hero-in p{font-size:.98rem;color:#d7dced;margin-bottom:20px}
+.go{
+  padding:12px 22px;border-radius:999px;
+  box-shadow:0 8px 28px rgba(255,145,107,.2);
+  transition:transform .2s,box-shadow .2s,background .2s;
+}
+.go:hover{transform:translateY(-2px);background:#ffa17f;box-shadow:0 12px 32px rgba(255,145,107,.27)}
+.wrap{max-width:1320px;padding:0 clamp(20px,4.2vw,64px) 100px}
+#sub{
+  display:inline-flex;align-items:center;min-height:34px;
+  margin:4px 0 8px;padding:5px 11px;
+  border:1px solid var(--line);border-radius:999px;
+  background:rgba(17,24,39,.55);font-size:.82rem;
+}
+#me{margin:0 0 22px;font-size:.78rem;overflow-wrap:anywhere}
+#me code{color:#c0c9df}
+.tabs{
+  position:sticky;top:0;z-index:5;
+  gap:6px;margin:8px 0 25px;padding:8px;
+  border:1px solid rgba(164,178,211,.12);border-radius:15px;
+  background:rgba(9,12,22,.82);backdrop-filter:blur(18px);
+  box-shadow:0 12px 32px rgba(0,0,0,.14);
+  scrollbar-width:thin;
+}
+.tabs button{
+  position:relative;border:0;border-radius:10px;
+  padding:10px 17px;color:#aab4cb;
+  transition:color .2s,background .2s;
+}
+.tabs button:hover{color:var(--text);background:rgba(255,255,255,.045)}
+.tabs button[aria-selected=true]{color:#fff;background:rgba(255,145,107,.11)}
+.tabs button[aria-selected=true]::after{
+  content:"";position:absolute;left:17px;right:17px;bottom:3px;height:2px;
+  border-radius:2px;background:var(--sun);
+}
+h2{font-size:1.72rem;letter-spacing:-.025em;margin:38px 0 17px}
+.sub{color:#b3bfd8}
+.grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:20px}
+.poster{
+  border:1px solid rgba(255,255,255,.07);border-radius:14px;
+  box-shadow:0 12px 32px rgba(0,0,0,.24);
+  transition:transform .24s ease,border-color .24s ease,box-shadow .24s ease;
+}
+.poster:hover{
+  transform:translateY(-6px) scale(1.012);
+  border-color:rgba(255,145,107,.48);
+  box-shadow:0 18px 42px rgba(0,0,0,.34);
+}
+.poster .cap{padding:48px 12px 12px;background:linear-gradient(0deg,rgba(4,6,13,.98),rgba(4,6,13,.68) 48%,transparent)}
+.poster .cap b{font-size:.93rem;letter-spacing:-.01em}
+.poster .cap span{font-size:.79rem}
+.wides{grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr));gap:17px}
+.wide{
+  min-height:166px;padding:16px;border:1px solid rgba(255,255,255,.07);
+  border-radius:16px;background-position:center;background-size:cover;
+  box-shadow:0 12px 30px rgba(0,0,0,.2);
+  transition:transform .22s,border-color .22s,box-shadow .22s;
+}
+.wide:hover{transform:translateY(-3px);border-color:rgba(255,145,107,.42);box-shadow:0 17px 36px rgba(0,0,0,.3)}
+.wide::before{background:linear-gradient(90deg,rgba(7,10,19,.96) 22%,rgba(7,10,19,.75) 58%,rgba(7,10,19,.28))}
+.wide img{width:86px;border:1px solid rgba(255,255,255,.13);border-radius:9px}
+.wide b{font-size:1.22rem;letter-spacing:-.02em}
+.pb{height:4px;background:rgba(255,255,255,.18)}
+.pb i{border-radius:4px}
+.meta{color:#a6b2cd}
+.bar{gap:9px;margin:0 0 24px;padding:12px;border:1px solid var(--line);border-radius:14px;background:rgba(17,24,39,.56)}
+.bar select,.cp,input.sc{
+  min-height:38px;background:#151d30;border:1px solid rgba(164,178,211,.18);border-radius:9px;
+  transition:border-color .2s,background .2s;
+}
+.bar select{padding:8px 13px}
+.bar select:focus,.cp:hover,input.sc:focus{border-color:rgba(255,145,107,.65)}
+.podium{gap:clamp(12px,3vw,34px);max-width:900px;margin:8px auto 34px}
+.pod .info b{font-size:.98rem}
+.num{color:var(--gold);font-size:clamp(3.2rem,8vw,5.8rem)}
+.row{background:linear-gradient(110deg,rgba(20,28,46,.96),rgba(16,22,37,.96));border-color:rgba(164,178,211,.13);padding:10px 15px 10px 11px;transition:transform .18s,border-color .18s,background .18s}
+.row:hover{transform:translateX(3px);border-color:rgba(255,145,107,.5);background:#192238}
+.msg{background:rgba(17,24,39,.48);border-color:rgba(164,178,211,.22);border-radius:15px}
+.tier{background:rgba(8,11,20,.7);border-radius:6px}
+.yr{margin:42px 0}
+.yr h2{gap:16px;margin-bottom:16px}
+.yb{font-size:2.8rem;letter-spacing:-.04em}
+.seasons{gap:14px}
+.cell{min-height:220px;padding:16px;border:1px solid rgba(255,255,255,.08);border-radius:16px;transition:transform .22s,border-color .22s,box-shadow .22s}
+button.cell:hover{transform:translateY(-5px);border-color:rgba(255,145,107,.48);box-shadow:0 16px 34px rgba(0,0,0,.28)}
+.cell::before{background:linear-gradient(0deg,rgba(7,10,19,.98) 13%,rgba(7,10,19,.72) 48%,rgba(7,10,19,.13))}
+.cell b{font-size:1.16rem}
+.cell.empty{background:rgba(17,24,39,.26)}
+.dialog,dialog{box-shadow:0 28px 90px rgba(0,0,0,.5)}
+dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)}
+.dh{min-height:210px}
+.db{padding:10px 24px 26px}
+.theme{background:linear-gradient(145deg,rgba(20,29,48,.96),rgba(15,21,35,.96));border-color:rgba(164,178,211,.14);border-radius:14px;padding:15px}
+.cp{padding:7px 12px;color:#e7ebf5}
+:focus-visible{outline:2px solid var(--sun);outline-offset:3px}
+@media(max-width:760px){
+  .hero{min-height:470px;background-position:58% center}
+  .hero-in{padding-bottom:38px}
+  .hero-in h1{font-size:clamp(2.6rem,10vw,4.2rem)}
+  .wrap{padding-inline:18px}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:14px}
+  .seasons{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tabs{margin-inline:-2px}
+  .tabs button{padding-inline:13px}
+}
+@media(max-width:520px){
+  .top{align-items:flex-start;flex-direction:column}
+  .who{width:100%;flex-wrap:wrap}
+  .who input{flex:1;min-width:110px;width:auto}
+  .who button{padding-inline:12px}
+  .hero{min-height:510px}
+  .hero-in h1{font-size:2.65rem}
+  .wides{grid-template-columns:1fr}
+  .wide{min-height:145px}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .seasons{gap:10px}
+  .cell{min-height:190px;padding:12px}
+  .yr h2{align-items:flex-start;flex-direction:column;gap:8px}
+  .row{grid-template-columns:28px 42px minmax(0,1fr) auto;gap:9px;padding:8px}
+  .row img{width:42px;height:60px}
+  .tier{padding:2px 7px;font-size:.85rem}
+  .tier small{margin-left:3px}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
+}
+
+/* ============ DIÁRIO DE EPISÓDIOS — TESTE 01 ============ */
+.detail-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px;padding:5px;background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:12px}
+.detail-tabs button{border:0;border-radius:9px;padding:9px 14px;background:transparent;color:var(--muted)}
+.detail-tabs button[aria-selected="true"]{background:rgba(255,145,107,.13);color:var(--text)}
+.diary-intro{color:var(--muted);font-size:.9rem;margin:0 0 14px}
+.diary-form{display:grid;grid-template-columns:110px 1fr;gap:10px;margin:0 0 20px;padding:14px;border:1px solid var(--line);border-radius:13px;background:rgba(17,24,39,.55)}
+.diary-form label{display:block;color:var(--muted);font-size:.8rem;margin:0 0 5px}
+.diary-form input,.diary-form textarea{width:100%;background:#0c1220;border:1px solid var(--line);border-radius:9px;padding:9px 11px;color:var(--text);font:inherit}
+.diary-form textarea{min-height:92px;resize:vertical;grid-column:1/-1}
+.diary-form .wide-field{grid-column:1/-1}
+.diary-form button{justify-self:start;background:var(--sun);color:#1a0d08;border:0;border-radius:999px;padding:9px 17px;font-weight:600}
+.diary-list{display:grid;gap:10px}
+.diary-entry{padding:14px;border:1px solid var(--line);border-radius:12px;background:rgba(17,24,39,.55)}
+.diary-entry-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.diary-entry-head strong{font-family:var(--serif);font-size:1.05rem}
+.diary-entry p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.diary-actions{display:flex;gap:7px;margin-top:12px}
+.diary-actions button{background:transparent;border:1px solid var(--line);border-radius:8px;padding:5px 10px;color:var(--muted);font-size:.82rem}
+.diary-actions button:hover{border-color:var(--sun);color:var(--text)}
+.diary-status{min-height:1.4em;color:var(--muted);font-size:.82rem}
+@media(max-width:560px){.diary-form{grid-template-columns:1fr}.diary-form textarea,.diary-form .wide-field{grid-column:auto}.diary-entry-head{align-items:flex-start;flex-direction:column}}
+/* ============ FIM DO DIÁRIO ============ */
+
+/* ============ FIM DA REPAGINAÇÃO VISUAL ============ */
+
 </style>
 </head>
 <body>
@@ -239,17 +458,57 @@ async function renderHall(){
 }
 
 async function openAnime(id){
-  const a=byId(id),d=$("dlg");
+  const a=byId(id),d=$("dlg");activeDiaryAnime=id;window.activeDiaryAnime=id;
   d.innerHTML=`<div class="dh" ${bg(a?.banner||a?.cover)}><button class="dx" onclick="dlg.close()">Fechar</button><h2>${esc(a?.title||"Anime "+id)}</h2>
    <div class="meta">${a?when(a):""} ${a?.score?badge(a.score):""} · <a href="${a?.url||"https://anilist.co/anime/"+id}" target="_blank" rel="noopener">AniList</a></div></div>
-   <div class="db"><div id="themes" class="msg">Buscando OP e ED…</div></div>`;
+   <div class="db"><div class="detail-tabs"><button type="button" data-detail-tab="themes" aria-selected="true">OP e ED</button><button type="button" data-detail-tab="diary" aria-selected="false">Diário de episódios</button></div>
+   <section id="detail-themes"><div id="themes" class="msg">Buscando OP e ED…</div></section>
+   <section id="detail-diary" class="hidden"><div id="diary-content" class="msg">Carregando diário…</div></section></div>`;
   d.showModal();
   try{const th=await fetchThemes(id);$("themes").className="";
     $("themes").innerHTML=th.length?th.map(t=>{const key=`${id}:${t.slug}`,sc=SONG_SCORES[key];
-      return `<div class="theme"><b>${t.slug}</b> · ${esc(t.title)} <span class="meta">${esc(t.artist)}${t.eps?" · eps "+esc(t.eps):""}</span> ${sc!=null?sbadge(sc):""}
+      return `<div class="theme"><b>${esc(t.slug)}</b> · ${esc(t.title)} <span class="meta">${esc(t.artist)}${t.eps?" · eps "+esc(t.eps):""}</span> ${sc!=null?sbadge(sc):""}
        ${t.video?`<video controls preload="none" src="${t.video}"></video>`:""}
        ${fbUser?`<div style="margin-top:8px"><input class="sc" id="sc-${key}" type="text" inputmode="decimal" placeholder="0 a 10" value="${sc??""}"> <button class="cp" data-save="${key}">Salvar nota</button> <code id="st-${key}"></code></div>`:""}</div>`}).join(""):'<div class="msg">O AnimeThemes não tem OP/ED cadastrado pra esse anime.</div>';
   }catch(e){$("themes").innerHTML='<div class="msg err">Não consegui buscar as músicas agora. Tente de novo em instantes.</div>'}
+  if(!fbUser){$("diary-content").innerHTML='<div class="msg">Entre com o Google para criar e consultar seu diário pessoal.</div>'}
+  else{loadDiary(id)}
+}
+
+let activeDiaryAnime=null;window.activeDiaryAnime=null;window.addEventListener("diary-auth-refresh",()=>{if(activeDiaryAnime!=null)loadDiary(activeDiaryAnime)});
+function diaryDate(value){
+  if(!value)return "Data não informada";
+  const d=new Date(value+"T12:00:00");
+  return Number.isNaN(d.getTime())?value:d.toLocaleDateString("pt-BR");
+}
+function renderDiaryEntries(id,logs){
+  const a=byId(id),next=(a?.progress||0)+1;
+  const sorted=[...logs].sort((x,y)=>String(y.watchedAt||"").localeCompare(String(x.watchedAt||""))||((y.createdAtMs||0)-(x.createdAtMs||0)));
+  $("diary-content").className="";
+  $("diary-content").innerHTML=`<p class="diary-intro">Registre suas impressões episódio por episódio. Você pode adicionar mais de uma anotação ao mesmo episódio.</p>
+   <form class="diary-form" id="diary-form">
+    <div><label for="diary-episode">Episódio</label><input id="diary-episode" type="number" min="0" step="1" value="${next}" required></div>
+    <div><label for="diary-date">Data em que assistiu</label><input id="diary-date" type="date" value="${new Date().toLocaleDateString("en-CA")}" required></div>
+    <div class="wide-field"><label for="diary-comment">Seu comentário</label><textarea id="diary-comment" maxlength="10000" placeholder="O que aconteceu? O que achou do episódio?" required></textarea></div>
+    <button type="submit">Adicionar registro</button><span class="diary-status" id="diary-status" role="status"></span>
+   </form>
+   <h3 style="font:600 1.2rem var(--serif);margin:0 0 12px">Histórico <span class="meta">${sorted.length} registro(s)</span></h3>
+   <div class="diary-list">${sorted.length?sorted.map(log=>`<article class="diary-entry"><div class="diary-entry-head"><strong>Episódio ${Number(log.episode)||0}</strong><span class="meta">${diaryDate(log.watchedAt)}</span></div><p>${esc(log.comment)}</p><div class="diary-actions"><button type="button" data-edit-log="${esc(log.id)}">Editar</button><button type="button" data-delete-log="${esc(log.id)}">Excluir</button></div></article>`).join(""):'<div class="msg">Você ainda não registrou nenhum episódio deste anime.</div>'}</div>`;
+  const form=$("diary-form");
+  form.addEventListener("submit",async ev=>{
+    ev.preventDefault();const status=$("diary-status"),episode=Number($("diary-episode").value),watchedAt=$("diary-date").value,comment=$("diary-comment").value.trim();
+    if(!Number.isInteger(episode)||episode<0||!watchedAt||!comment){status.textContent="Preencha episódio, data e comentário.";return}
+    const submit=form.querySelector('button[type="submit"]');submit.disabled=true;status.textContent="Salvando…";
+    try{await hubFB.addLog({animeId:id,episode,watchedAt,comment});await loadDiary(id);}
+    catch(err){status.textContent="Não foi possível salvar: "+(err.code||err.message);submit.disabled=false;}
+  });
+}
+async function loadDiary(id){
+  activeDiaryAnime=id;
+  if(!fbUser){$("diary-content").innerHTML='<div class="msg">Entre com o Google para criar e consultar seu diário pessoal.</div>';return}
+  $("diary-content").className="msg";$("diary-content").textContent="Carregando diário…";
+  try{const logs=await hubFB.getLogs(id);if(activeDiaryAnime===id&&$("dlg").open)renderDiaryEntries(id,logs)}
+  catch(err){$("diary-content").innerHTML=`<div class="msg err">Não consegui carregar o diário (${esc(err.code||err.message)}). Confira as regras do Firestore.</div>`}
 }
 
 function render(){
@@ -280,11 +539,34 @@ window.addEventListener("fb-scores",e=>{
   Object.keys(SONG_SCORES).forEach(k=>delete SONG_SCORES[k]);Object.assign(SONG_SCORES,e.detail);
   if(animes.length&&tab==="hall")render();
 });
+document.addEventListener("submit",async e=>{
+  const form=e.target.closest("[data-edit-form]");if(!form)return;e.preventDefault();
+  const data=new FormData(form),episode=Number(data.get("episode")),watchedAt=String(data.get("watchedAt")||""),comment=String(data.get("comment")||"").trim();
+  if(!Number.isInteger(episode)||episode<0||!watchedAt||!comment)return;
+  const btn=form.querySelector('button[type="submit"]');btn.disabled=true;
+  try{await hubFB.updateLog(form.dataset.editForm,{episode,watchedAt,comment});await loadDiary(activeDiaryAnime)}
+  catch(err){alert("Não foi possível salvar a edição: "+(err.code||err.message));btn.disabled=false;}
+});
+
 $("login").addEventListener("click",()=>{
   if(!window.hubFB){alert("O Firebase ainda não carregou. Confira a internet e recarregue.");return}
   (fbUser?hubFB.logout():hubFB.login()).catch(err=>alert("Não foi possível entrar: "+err.code));
 });
 document.addEventListener("click",async e=>{
+  const detailTab=e.target.closest("[data-detail-tab]");
+  if(detailTab){const name=detailTab.dataset.detailTab;
+    document.querySelectorAll("[data-detail-tab]").forEach(b=>b.setAttribute("aria-selected",String(b===detailTab)));
+    $("detail-themes").classList.toggle("hidden",name!=="themes");$("detail-diary").classList.toggle("hidden",name!=="diary");
+    if(name==="diary"&&activeDiaryAnime!=null)loadDiary(activeDiaryAnime);
+    return;
+  }
+  const edit=e.target.closest("[data-edit-log]");
+  if(edit){const id=activeDiaryAnime,logId=edit.dataset.editLog;try{const logs=await hubFB.getLogs(id),log=logs.find(x=>x.id===logId);if(!log)return;
+    const entry=edit.closest(".diary-entry");entry.innerHTML=`<form class="diary-form" data-edit-form="${esc(logId)}"><div><label>Episódio</label><input name="episode" type="number" min="0" step="1" value="${Number(log.episode)||0}" required></div><div><label>Data</label><input name="watchedAt" type="date" value="${esc(log.watchedAt||"")}" required></div><div class="wide-field"><label>Comentário</label><textarea name="comment" required>${esc(log.comment)}</textarea></div><button type="submit">Salvar edição</button><button type="button" data-cancel-edit>Cancelar</button></form>`;
+  }catch(err){alert("Não foi possível abrir o registro: "+(err.code||err.message))}return;}
+  const del=e.target.closest("[data-delete-log]");
+  if(del){if(!confirm("Excluir este registro do diário?"))return;try{await hubFB.deleteLog(del.dataset.deleteLog);await loadDiary(activeDiaryAnime)}catch(err){alert("Não foi possível excluir: "+(err.code||err.message))}return;}
+  const cancel=e.target.closest("[data-cancel-edit]");if(cancel){loadDiary(activeDiaryAnime);return;}
   const sv=e.target.closest("[data-save]");
   if(sv){
     const key=sv.dataset.save,v=document.getElementById("sc-"+key).value.trim().replace(",","."),st=document.getElementById("st-"+key);
@@ -310,7 +592,7 @@ $("user").value=saved||DEFAULT_USER;load();
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 import {getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
-import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,onSnapshot,doc,setDoc,deleteDoc,serverTimestamp} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
+import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,onSnapshot,doc,setDoc,deleteDoc,serverTimestamp,addDoc,getDocs,query,where,updateDoc} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
 
 const app=initializeApp({
   apiKey:"AIzaSyCgHMZV_wIFOV4QuJi3bBRbu_iOXSJ1ahY",
@@ -329,9 +611,26 @@ window.hubFB={
   login:()=>signInWithPopup(auth,new GoogleAuthProvider()),
   logout:()=>signOut(auth),
   save:(key,n)=>setDoc(doc(db,"songScores",key),{score:n,updatedAt:serverTimestamp()}),
-  remove:key=>deleteDoc(doc(db,"songScores",key))
+  remove:key=>deleteDoc(doc(db,"songScores",key)),
+  addLog:({animeId,episode,watchedAt,comment})=>{
+    if(!auth.currentUser)throw new Error("Faça login para salvar no diário.");
+    return addDoc(collection(db,"users",auth.currentUser.uid,"episodeLogs"),{animeId:Number(animeId),episode:Number(episode),watchedAt,comment,createdAt:serverTimestamp()});
+  },
+  getLogs:async animeId=>{
+    if(!auth.currentUser)throw new Error("Faça login para consultar o diário.");
+    const q=query(collection(db,"users",auth.currentUser.uid,"episodeLogs"),where("animeId","==",Number(animeId)));
+    const snap=await getDocs(q);return snap.docs.map(d=>({id:d.id,...d.data(),createdAtMs:d.data().createdAt?.toMillis?.()||0}));
+  },
+  updateLog:(id,changes)=>{
+    if(!auth.currentUser)throw new Error("Faça login para editar o diário.");
+    return updateDoc(doc(db,"users",auth.currentUser.uid,"episodeLogs",id),{...changes,updatedAt:serverTimestamp()});
+  },
+  deleteLog:id=>{
+    if(!auth.currentUser)throw new Error("Faça login para excluir do diário.");
+    return deleteDoc(doc(db,"users",auth.currentUser.uid,"episodeLogs",id));
+  }
 };
-onAuthStateChanged(auth,u=>emit("fb-user",u?{uid:u.uid,name:u.displayName||u.email}:null));
+onAuthStateChanged(auth,u=>{emit("fb-user",u?{uid:u.uid,name:u.displayName||u.email}:null);if(window.activeDiaryAnime&&document.getElementById("detail-diary")&&!document.getElementById("detail-diary").classList.contains("hidden"))window.dispatchEvent(new CustomEvent("diary-auth-refresh"));});
 onSnapshot(collection(db,"songScores"),
   snap=>{const m={};snap.forEach(d=>m[d.id]=d.data().score);emit("fb-scores",m)},
   err=>emit("fb-error",err.code));
