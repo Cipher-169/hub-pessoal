@@ -1,5 +1,6 @@
 // src/views/modal.js
-import { esc, badge, sbadge, bg, localDateISO, when } from '../utils/helpers.js';
+import { esc, badge, sbadge, bg, localDateISO, when, themeTypeFromSlug, isProvisionalThemeSlug } from '../utils/helpers.js';
+import { PROVISIONAL_THEME_SLUGS } from '../config.js';
 import { fetchThemes } from '../services/animethemes.js';
 import { themeTypeFromSlug, isProvisionalThemeSlug, PROVISIONAL_THEME_SLUGS } from '../config.js';
 
