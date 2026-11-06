@@ -323,7 +323,14 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 .experience-form{display:grid;gap:14px;padding:16px;border:1px solid var(--line);border-radius:13px;background:rgba(17,24,39,.55)}
 .experience-form label{display:block;color:var(--muted);font-size:.82rem;margin:0 0 6px}
 .experience-form select,.experience-form input,.experience-form textarea,.theme-comment{width:100%;background:#0c1220;border:1px solid var(--line);border-radius:9px;padding:9px 11px;color:var(--text);font:inherit}
-.experience-form select[multiple]{min-height:112px}
+.platform-picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:9px;margin-top:8px}
+.platform-option{position:relative;display:flex!important;align-items:center;gap:9px;min-height:46px;margin:0!important;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.025);color:var(--text)!important;font-size:.9rem!important;cursor:pointer;transition:border-color .15s,background .15s,transform .15s}
+.platform-option:hover{border-color:var(--sun);background:rgba(242,196,109,.07)}
+.platform-option:has(input:checked){border-color:var(--sun);background:rgba(242,196,109,.13);box-shadow:inset 0 0 0 1px rgba(242,196,109,.22)}
+.platform-option input{width:17px!important;height:17px;flex:0 0 17px;margin:0;accent-color:var(--sun);cursor:pointer}
+.platform-option span{line-height:1.2}
+.platform-hint{color:var(--muted);font-size:.78rem;margin:7px 0 0}
+@media(max-width:420px){.platform-picker{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.platform-option{padding:9px;min-height:43px}}
 .experience-form textarea,.theme-comment{min-height:84px;resize:vertical}
 .experience-form button,.theme-comment-save{justify-self:start;background:var(--sun);color:#1a0d08;border:0;border-radius:999px;padding:9px 17px;font-weight:600}
 .form-hint{color:var(--muted);font-size:.8rem;margin:4px 0 0}
@@ -548,14 +555,16 @@ async function loadExperience(id){
     root.innerHTML=`<p class="diary-intro">Informações opcionais sobre como você assistiu a este anime. Elas ficam salvas separadamente dos dados do AniList.</p>
       <form class="experience-form" id="experience-form">
        <div><label for="watch-language">Idioma</label><select id="watch-language"><option value="">Não informado</option><option value="sub" ${data.language==="sub"?"selected":""}>Legendado</option><option value="dub" ${data.language==="dub"?"selected":""}>Dublado</option><option value="other" ${data.language==="other"?"selected":""}>Outro</option></select></div>
-       <div><label for="watch-platforms">Plataforma (pode selecionar mais de uma)</label><select id="watch-platforms" multiple><option value="Crunchyroll" ${platforms.includes("Crunchyroll")?"selected":""}>Crunchyroll</option><option value="Netflix" ${platforms.includes("Netflix")?"selected":""}>Netflix</option><option value="Prime Video" ${platforms.includes("Prime Video")?"selected":""}>Prime Video</option><option value="Disney+" ${platforms.includes("Disney+")?"selected":""}>Disney+</option><option value="Max" ${platforms.includes("Max")?"selected":""}>Max</option><option value="YouTube" ${platforms.includes("YouTube")?"selected":""}>YouTube</option><option value="Outra" ${platforms.includes("Outra")?"selected":""}>Outra</option></select><p class="form-hint">Use Ctrl (ou ⌘ no Mac) para selecionar várias opções.</p></div>
+       <div><label>Plataforma(s) em que assistiu</label><div class="platform-picker" id="watch-platforms">
+        ${["Crunchyroll","Netflix","Prime Video","Disney+","Max","YouTube","Outra"].map(platform=>`<label class="platform-option"><input type="checkbox" name="watch-platform" value="${platform}" ${platforms.includes(platform)?"checked":""}><span>${platform}</span></label>`).join("")}
+       </div><p class="platform-hint">Selecione quantas plataformas quiser. As opções marcadas ficam destacadas.</p></div>
        <div><label for="watch-platform-other">Outra plataforma (opcional)</label><input id="watch-platform-other" maxlength="100" value="${esc(data.otherPlatform||"")}" placeholder="Nome da plataforma"></div>
        <div><label for="watch-notes">Outras informações (opcional)</label><textarea id="watch-notes" maxlength="5000" placeholder="Ex.: acompanhei semanalmente, assisti com amigos…">${esc(data.viewingNotes||"")}</textarea></div>
        <button type="submit">Salvar minha experiência</button><span class="experience-status" id="experience-status" role="status"></span>
       </form>`;
     $("experience-form").addEventListener("submit",async ev=>{
       ev.preventDefault();const btn=ev.currentTarget.querySelector('button[type="submit"]'),status=$("experience-status");btn.disabled=true;status.textContent="Salvando…";
-      const selectedPlatforms=[...$("watch-platforms").selectedOptions].map(o=>o.value);
+      const selectedPlatforms=[...$("watch-platforms").querySelectorAll("input[name=\"watch-platform\"]:checked")].map(o=>o.value);
       try{await hubFB.saveAnimeNote(id,{language:$("watch-language").value,platforms:selectedPlatforms,otherPlatform:$("watch-platform-other").value.trim(),viewingNotes:$("watch-notes").value.trim()});status.textContent="Salvo!";}
       catch(err){status.textContent="Não foi possível salvar: "+(err.code||err.message)}finally{btn.disabled=false}
     });
