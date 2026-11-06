@@ -107,6 +107,20 @@ a{color:var(--sun)}
 .stat-list span{min-width:0;overflow-wrap:anywhere}.stat-list b{white-space:nowrap;font-variant-numeric:tabular-nums}
 .stats-note{color:var(--muted);font-size:.78rem;margin:12px 0 0}
 @media(max-width:560px){.stat-line{grid-template-columns:minmax(80px,1fr) minmax(50px,1.2fr) auto;gap:7px}.stat-card strong{font-size:1.55rem}}
+/* Ranking musical */
+.ranking-tools{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 18px}
+.ranking-tools select,.ranking-tools input{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 12px;min-width:0}
+.ranking-tools input{flex:1;min-width:190px}
+.ranking-summary{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0 18px}
+.ranking-summary .stat-card{flex:1;min-width:145px}
+.ranking-list{display:grid;gap:9px;padding:0;margin:0;list-style:none}
+.ranking-item{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 14px}
+.ranking-position{font:700 1.35rem var(--serif);color:var(--gold);text-align:center}
+.ranking-main{min-width:0}.ranking-main strong{display:block;overflow-wrap:anywhere}.ranking-main small{display:block;color:var(--muted);overflow-wrap:anywhere}
+.ranking-links{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.ranking-links button{background:none;border:0;color:var(--sun);padding:4px 0}.ranking-links a{white-space:nowrap}
+@media(max-width:520px){.ranking-item{grid-template-columns:30px minmax(0,1fr);gap:9px}.ranking-links{grid-column:2;justify-content:flex-start}.ranking-position{font-size:1.1rem}}
+
 
 .cp{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 12px}
 .yr{margin:32px 0}
@@ -402,6 +416,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
     <button role="tab" aria-selected="false" data-tab="top">Top animes</button>
     <button role="tab" aria-selected="false" data-tab="hall">Hall da fama OP e ED</button>
     <button role="tab" aria-selected="false" data-tab="stats" id="stats-tab" class="hidden">Estatísticas</button>
+    <button role="tab" aria-selected="false" data-tab="ranking" id="ranking-tab" class="hidden">Ranking musical</button>
   </div>
   <div class="bar hidden" id="filters">
     <select id="type" aria-label="Tipo"><option value="OP">Openings</option><option value="ED">Endings</option></select>
@@ -416,7 +431,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 <script>
 /* =====================================================================
    CONTROLE DE VERSÃO DO PROJETO — LEIA ANTES DE MODIFICAR ESTE ARQUIVO
-   Versão atual: 7
+   Versão atual: 9
    REGRA OBRIGATÓRIA PARA QUALQUER IA OU PESSOA QUE EDITAR O PROJETO:
    - Sempre que fizer qualquer modificação no código, incremente HUB_VERSION
      em exatamente 1 (ex.: 4 -> 5), mesmo que seja uma correção pequena.
@@ -427,7 +442,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
      anterior. Se receber um arquivo com versão menor, avise o usuário.
    - Antes de editar, procure HUB_VERSION e confira a versão recebida.
    ===================================================================== */
-const HUB_VERSION = 8;
+const HUB_VERSION = 9;
 window.HUB_VERSION = HUB_VERSION;
 document.getElementById("project-version").textContent = `v${HUB_VERSION}`;
 
@@ -456,7 +471,7 @@ const SEASONS={WINTER:"Winter",SPRING:"Spring",SUMMER:"Summer",FALL:"Fall"};
 const when=a=>[SEASONS[a.season],a.year].filter(Boolean).join(" ");
 const bg=u=>u?`style="background-image:url('${u}')"`:"";
 
-let animes=[],tab="now",fbUser=null,fbErr=null,loadingCatalog=false,statsLoading=false;
+let animes=[],tab="now",fbUser=null,fbErr=null,loadingCatalog=false,statsLoading=false,rankingLoading=false;
 const byId=id=>animes.find(a=>a.id===id);
 const themeCache=new Map();
 const PROVISIONAL_THEME_SLUGS={OP:"provisional_op",ED:"provisional_ed"};
@@ -871,7 +886,48 @@ async function renderStats(refresh=false){
   }catch(e){$("view").innerHTML=`<div class="msg err">Não consegui calcular as estatísticas (${esc(e.code||e.message)}). Confira se você está conectado à conta proprietária e se as regras permitem a leitura dos seus dados.</div>`;}
   finally{statsLoading=false;}
 }
+async function renderRanking(){
+  if(!fbUser){$("view").innerHTML='<div class="msg">Entre com a conta proprietária para consultar seu ranking musical.</div>';return;}
+  if(rankingLoading)return;rankingLoading=true;
+  $("view").innerHTML='<div class="msg">Montando seu ranking musical…</div>';
+  try{
+    const [notes,scores]=await Promise.all([hubFB.getAllAnimeNotes(),hubFB.getSongScores()]);
+    const catalogByAnime=new Map(Object.entries(notes||{}).map(([id,n])=>[String(id),Array.isArray(n?.themeCatalog)?n.themeCatalog:[]]));
+    const tracks=[];
+    Object.entries(scores||{}).forEach(([key,rawScore])=>{
+      const cut=key.indexOf(":");if(cut<1||!Number.isFinite(Number(rawScore)))return;
+      const id=key.slice(0,cut),slug=key.slice(cut+1);
+      if(isProvisionalThemeSlug(slug))return;
+      const theme=(catalogByAnime.get(id)||[]).find(t=>t.slug===slug);
+      if(!theme||!['OP','ED'].includes(String(theme.type||themeTypeFromSlug(slug)).toUpperCase())||!String(theme.title||'').trim())return;
+      const anime=byId(Number(id));
+      const rawVideo=String(theme.video||'').trim(),video=/^https?:\/\//i.test(rawVideo)?rawVideo:'';
+      tracks.push({id,slug,type:String(theme.type||themeTypeFromSlug(slug)).toUpperCase(),score:Number(rawScore),title:String(theme.title).trim(),artist:String(theme.artist||'').trim(),anime:anime?.title||`Anime ${id}`,video});
+    });
+    tracks.sort((a,b)=>b.score-a.score||a.title.localeCompare(b.title,'pt-BR'));
+    const opCount=tracks.filter(t=>t.type==='OP').length,edCount=tracks.filter(t=>t.type==='ED').length;
+    const average=list=>list.length?(list.reduce((sum,t)=>sum+t.score,0)/list.length).toFixed(2).replace('.',','):'—';
+    const renderList=(type='ALL',query='')=>{
+      const q=query.trim().toLocaleLowerCase('pt-BR');
+      const filtered=tracks.filter(t=>(type==='ALL'||t.type===type)&&(!q||[t.title,t.artist,t.anime].some(v=>v.toLocaleLowerCase('pt-BR').includes(q))));
+      if(!filtered.length)return '<div class="msg">Nenhuma música encontrada com esses filtros.</div>';
+      return `<ol class="ranking-list">${filtered.map((t,i)=>`<li class="ranking-item"><span class="ranking-position">${i+1}</span><div class="ranking-main"><strong>${esc(t.title)} <span class="meta">· ${t.score.toLocaleString('pt-BR')}/10</span></strong><small>${esc(t.artist||'Artista não identificado')} · ${t.type} · ${esc(t.anime)}</small></div><div class="ranking-links"><button type="button" data-ranking-anime="${esc(t.id)}">Ver anime</button>${t.video?`<a href="${esc(t.video)}" target="_blank" rel="noopener noreferrer">Assistir ↗</a>`:''}</div></li>`).join('')}</ol>`;
+    };
+    const html=`<div class="stats-head"><p>Suas músicas avaliadas, ordenadas da maior para a menor nota. Empates ficam em sequência.</p><button type="button" id="ranking-refresh">Atualizar dados</button></div>
+      <div class="ranking-summary"><article class="stat-card"><small>OPs no ranking</small><strong>${opCount}</strong><span>Média: ${average(tracks.filter(t=>t.type==='OP'))}/10</span></article><article class="stat-card"><small>EDs no ranking</small><strong>${edCount}</strong><span>Média: ${average(tracks.filter(t=>t.type==='ED'))}/10</span></article><article class="stat-card"><small>Total de músicas</small><strong>${tracks.length}</strong><span>Somente músicas reais identificadas</span></article></div>
+      <div class="ranking-tools"><select id="ranking-type" aria-label="Tipo de música"><option value="ALL">OPs e EDs</option><option value="OP">Somente OPs</option><option value="ED">Somente EDs</option></select><input id="ranking-search" type="search" placeholder="Buscar música, artista ou anime…" aria-label="Buscar no ranking"></div>
+      <div id="ranking-results">${renderList()}</div>
+      <p class="stats-note">Avaliações provisórias ou músicas sem catálogo identificado não aparecem aqui. Elas continuam salvas e podem ser associadas quando o AnimeThemes estiver disponível.</p>`;
+    $("view").innerHTML=html;
+    const update=()=>{$("ranking-results").innerHTML=renderList($("ranking-type").value,$("ranking-search").value);};
+    $("ranking-type").addEventListener('change',update);$("ranking-search").addEventListener('input',update);
+    $("ranking-refresh").addEventListener('click',async()=>{await hubFB.getAllAnimeNotes({refresh:true});await cacheDelete('songScores');rankingLoading=false;await renderRanking();});
+    $("ranking-results").addEventListener('click',e=>{const b=e.target.closest('[data-ranking-anime]');if(b)openAnime(Number(b.dataset.rankingAnime));});
+  }catch(e){$("view").innerHTML=`<div class="msg err">Não consegui montar o ranking (${esc(e.code||e.message)}). Confira sua conexão e as permissões de leitura.</div>`;}
+  finally{rankingLoading=false;}
+}
 function render(){
+  if(tab==="ranking"){ $("filters").classList.add("hidden");$("type").classList.add("hidden");renderRanking();return; }
   if(tab==="stats"){ $("filters").classList.add("hidden");$("type").classList.add("hidden");renderStats();return; }
   $("filters").classList.toggle("hidden",tab==="now"||tab==="panel");
   $("type").classList.toggle("hidden",tab!=="hall");
@@ -919,7 +975,7 @@ async function load({sync=false}={}){
   }finally{loadingCatalog=false;button.disabled=false;}
 }
 document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>{tab=b.dataset.tab;
-  document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));if(animes.length||tab==="stats")render()}));
+  document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));if(animes.length||tab==="stats"||tab==="ranking")render()}));
 ["type","year","season","limit"].forEach(id=>$(id).addEventListener("change",()=>animes.length&&render()));
 function updateMe(){
   $("me").innerHTML=fbUser?`Logado como ${esc(fbUser.name)} · UID: <code>${esc(fbUser.uid)}</code> <button class="cp" data-copy="${esc(fbUser.uid)}">Copiar UID</button>`:"";
@@ -927,7 +983,8 @@ function updateMe(){
   $("export-data").classList.toggle("hidden",!fbUser);
   $("import-data").classList.toggle("hidden",!fbUser);
   $("stats-tab").classList.toggle("hidden",!fbUser);
-  if(!fbUser&&tab==="stats"){tab="now";document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",String(x.dataset.tab==="now")));if(animes.length)render();}
+  $("ranking-tab").classList.toggle("hidden",!fbUser);
+  if(!fbUser&&(tab==="stats"||tab==="ranking")){tab="now";document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",String(x.dataset.tab==="now")));if(animes.length)render();}
   if(!fbUser)$("sync-status").textContent="Catálogo público via AniList; entre com a conta proprietária para editar seus dados.";
 }
 window.addEventListener("fb-user",e=>{fbUser=e.detail;updateMe();load({sync:false})});
