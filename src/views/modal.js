@@ -2,7 +2,6 @@
 import { esc, badge, sbadge, bg, localDateISO, when, themeTypeFromSlug, isProvisionalThemeSlug } from '../utils/helpers.js';
 import { PROVISIONAL_THEME_SLUGS } from '../config.js';
 import { fetchThemes } from '../services/animethemes.js';
-import { themeTypeFromSlug, isProvisionalThemeSlug, PROVISIONAL_THEME_SLUGS } from '../config.js';
 
 let activeDiaryAnime = null;
 export function getActiveDiaryAnime() { return activeDiaryAnime; }
