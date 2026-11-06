@@ -313,6 +313,16 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 .diary-actions button{background:transparent;border:1px solid var(--line);border-radius:8px;padding:5px 10px;color:var(--muted);font-size:.82rem}
 .diary-actions button:hover{border-color:var(--sun);color:var(--text)}
 .diary-status{min-height:1.4em;color:var(--muted);font-size:.82rem}
+.experience-form{display:grid;gap:14px;padding:16px;border:1px solid var(--line);border-radius:13px;background:rgba(17,24,39,.55)}
+.experience-form label{display:block;color:var(--muted);font-size:.82rem;margin:0 0 6px}
+.experience-form select,.experience-form input,.experience-form textarea,.theme-comment{width:100%;background:#0c1220;border:1px solid var(--line);border-radius:9px;padding:9px 11px;color:var(--text);font:inherit}
+.experience-form select[multiple]{min-height:112px}
+.experience-form textarea,.theme-comment{min-height:84px;resize:vertical}
+.experience-form button,.theme-comment-save{justify-self:start;background:var(--sun);color:#1a0d08;border:0;border-radius:999px;padding:9px 17px;font-weight:600}
+.form-hint{color:var(--muted);font-size:.8rem;margin:4px 0 0}
+.theme-comment-wrap{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.theme-comment-wrap label{display:block;color:var(--muted);font-size:.8rem;margin-bottom:5px}
+.theme-comment-save{margin-top:7px}.experience-status{color:var(--muted);font-size:.82rem;min-height:1.2em}
 @media(max-width:560px){.diary-form{grid-template-columns:1fr}.diary-form textarea,.diary-form .wide-field{grid-column:auto}.diary-entry-head{align-items:flex-start;flex-direction:column}}
 /* ============ FIM DO DIÁRIO ============ */
 
@@ -461,23 +471,50 @@ async function openAnime(id){
   const a=byId(id),d=$("dlg");activeDiaryAnime=id;window.activeDiaryAnime=id;
   d.innerHTML=`<div class="dh" ${bg(a?.banner||a?.cover)}><button class="dx" onclick="dlg.close()">Fechar</button><h2>${esc(a?.title||"Anime "+id)}</h2>
    <div class="meta">${a?when(a):""} ${a?.score?badge(a.score):""} · <a href="${a?.url||"https://anilist.co/anime/"+id}" target="_blank" rel="noopener">AniList</a></div></div>
-   <div class="db"><div class="detail-tabs"><button type="button" data-detail-tab="themes" aria-selected="true">OP e ED</button><button type="button" data-detail-tab="diary" aria-selected="false">Diário de episódios</button></div>
+   <div class="db"><div class="detail-tabs"><button type="button" data-detail-tab="themes" aria-selected="true">OP e ED</button><button type="button" data-detail-tab="experience" aria-selected="false">Minha experiência</button><button type="button" data-detail-tab="diary" aria-selected="false">Diário de episódios</button></div>
    <section id="detail-themes"><div id="themes" class="msg">Buscando OP e ED…</div></section>
+   <section id="detail-experience" class="hidden"><div id="experience-content" class="msg">Carregando…</div></section>
    <section id="detail-diary" class="hidden"><div id="diary-content" class="msg">Carregando diário…</div></section></div>`;
   d.showModal();
   try{const th=await fetchThemes(id);$("themes").className="";
     $("themes").innerHTML=th.length?th.map(t=>{const key=`${id}:${t.slug}`,sc=SONG_SCORES[key];
       return `<div class="theme"><b>${esc(t.slug)}</b> · ${esc(t.title)} <span class="meta">${esc(t.artist)}${t.eps?" · eps "+esc(t.eps):""}</span> ${sc!=null?sbadge(sc):""}
        ${t.video?`<video controls preload="none" src="${t.video}"></video>`:""}
-       ${fbUser?`<div style="margin-top:8px"><input class="sc" id="sc-${key}" type="text" inputmode="decimal" placeholder="0 a 10" value="${sc??""}"> <button class="cp" data-save="${key}">Salvar nota</button> <code id="st-${key}"></code></div>`:""}</div>`}).join(""):'<div class="msg">O AnimeThemes não tem OP/ED cadastrado pra esse anime.</div>';
+       ${fbUser?`<div style="margin-top:8px"><label class="meta" for="sc-${key}">Nota (opcional)</label><input class="sc" id="sc-${key}" type="text" inputmode="decimal" placeholder="0 a 10" value="${sc??""}"> <button class="cp" data-save="${key}">Salvar nota</button> <code id="st-${key}"></code></div><div class="theme-comment-wrap"><label for="tc-${key}">Minha impressão sobre esta música (opcional)</label><textarea class="theme-comment" id="tc-${key}" maxlength="5000" placeholder="O que achou da música, animação, cenas…"></textarea><button class="theme-comment-save" data-save-theme-comment="${esc(t.slug)}">Salvar comentário</button> <span class="experience-status" id="tcs-${key}"></span></div>`:""}</div>`}).join(""):'<div class="msg">O AnimeThemes não tem OP/ED cadastrado pra esse anime.</div>';
   }catch(e){$("themes").innerHTML='<div class="msg err">Não consegui buscar as músicas agora. Tente de novo em instantes.</div>'}
-  if(!fbUser){$("diary-content").innerHTML='<div class="msg">Entre com o Google para criar e consultar seu diário pessoal.</div>'}
-  else{loadDiary(id)}
+  if(fbUser){try{const note=await hubFB.getAnimeNote(id);Object.entries(note.themeComments||{}).forEach(([slug,comment])=>{const key=`${id}:${slug}`,field=document.getElementById(`tc-${key}`);if(field)field.value=comment||""})}catch(e){}}
+  if(!fbUser){$("diary-content").innerHTML='<div class="msg">Entre com o Google para criar e consultar seu diário pessoal.</div>';$("experience-content").innerHTML='<div class="msg">Entre com o Google para salvar suas informações pessoais.</div>'}
+  else{loadDiary(id);loadExperience(id)}
 }
 
-let activeDiaryAnime=null;window.activeDiaryAnime=null;window.addEventListener("diary-auth-refresh",()=>{if(activeDiaryAnime!=null)loadDiary(activeDiaryAnime)});
+async function loadExperience(id){
+  const root=$("experience-content");if(!fbUser){root.innerHTML='<div class="msg">Entre com o Google para salvar suas informações pessoais.</div>';return}
+  root.className="msg";root.textContent="Carregando suas informações…";
+  try{
+    const data=await hubFB.getAnimeNote(id);if(activeDiaryAnime!==id||!$("dlg").open)return;
+    const platforms=Array.isArray(data.platforms)?data.platforms:[];
+    root.className="";
+    root.innerHTML=`<p class="diary-intro">Informações opcionais sobre como você assistiu a este anime. Elas ficam salvas separadamente dos dados do AniList.</p>
+      <form class="experience-form" id="experience-form">
+       <div><label for="watch-language">Idioma</label><select id="watch-language"><option value="">Não informado</option><option value="sub" ${data.language==="sub"?"selected":""}>Legendado</option><option value="dub" ${data.language==="dub"?"selected":""}>Dublado</option><option value="other" ${data.language==="other"?"selected":""}>Outro</option></select></div>
+       <div><label for="watch-platforms">Plataforma (pode selecionar mais de uma)</label><select id="watch-platforms" multiple><option value="Crunchyroll" ${platforms.includes("Crunchyroll")?"selected":""}>Crunchyroll</option><option value="Netflix" ${platforms.includes("Netflix")?"selected":""}>Netflix</option><option value="Prime Video" ${platforms.includes("Prime Video")?"selected":""}>Prime Video</option><option value="Disney+" ${platforms.includes("Disney+")?"selected":""}>Disney+</option><option value="Max" ${platforms.includes("Max")?"selected":""}>Max</option><option value="YouTube" ${platforms.includes("YouTube")?"selected":""}>YouTube</option><option value="Outra" ${platforms.includes("Outra")?"selected":""}>Outra</option></select><p class="form-hint">Use Ctrl (ou ⌘ no Mac) para selecionar várias opções.</p></div>
+       <div><label for="watch-platform-other">Outra plataforma (opcional)</label><input id="watch-platform-other" maxlength="100" value="${esc(data.otherPlatform||"")}" placeholder="Nome da plataforma"></div>
+       <div><label for="watch-notes">Outras informações (opcional)</label><textarea id="watch-notes" maxlength="5000" placeholder="Ex.: acompanhei semanalmente, assisti com amigos…">${esc(data.viewingNotes||"")}</textarea></div>
+       <button type="submit">Salvar minha experiência</button><span class="experience-status" id="experience-status" role="status"></span>
+      </form>`;
+    $("experience-form").addEventListener("submit",async ev=>{
+      ev.preventDefault();const btn=ev.currentTarget.querySelector('button[type="submit"]'),status=$("experience-status");btn.disabled=true;status.textContent="Salvando…";
+      const platforms=[...$("watch-platforms").selectedOptions].map(o=>o.value);
+      try{await hubFB.saveAnimeNote(id,{language:$("watch-language").value,platforms,otherPlatform:$("watch-platform-other").value.trim(),viewingNotes:$("watch-notes").value.trim()});status.textContent="Salvo!";}
+      catch(err){status.textContent="Não foi possível salvar: "+(err.code||err.message)}finally{btn.disabled=false}
+    });
+  }catch(err){root.className="";root.innerHTML=`<div class="msg err">Não consegui carregar suas informações (${esc(err.code||err.message)}).</div>`}
+}
+
+let activeDiaryAnime=null;window.activeDiaryAnime=null;window.addEventListener("diary-auth-refresh",()=>{if(activeDiaryAnime!=null){loadDiary(activeDiaryAnime);loadExperience(activeDiaryAnime)}});
+function localDateISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
 function diaryDate(value){
-  if(!value)return "Data não informada";
+  if(!value)return "Esqueci a data";
   const d=new Date(value+"T12:00:00");
   return Number.isNaN(d.getTime())?value:d.toLocaleDateString("pt-BR");
 }
@@ -488,7 +525,7 @@ function renderDiaryEntries(id,logs){
   $("diary-content").innerHTML=`<p class="diary-intro">Registre suas impressões episódio por episódio. Você pode adicionar mais de uma anotação ao mesmo episódio.</p>
    <form class="diary-form" id="diary-form">
     <div><label for="diary-episode">Episódio</label><input id="diary-episode" type="number" min="0" step="1" value="${next}" required></div>
-    <div><label for="diary-date">Data em que assistiu</label><input id="diary-date" type="date" value="${new Date().toLocaleDateString("en-CA")}" required></div>
+    <div><label for="diary-date">Data em que assistiu</label><input id="diary-date" type="date" value="${localDateISO()}"><label style="display:flex;align-items:center;gap:7px;margin-top:8px"><input id="diary-forgot" type="checkbox" style="width:auto"> Esqueci a data</label></div>
     <div class="wide-field"><label for="diary-comment">Seu comentário</label><textarea id="diary-comment" maxlength="10000" placeholder="O que aconteceu? O que achou do episódio?" required></textarea></div>
     <button type="submit">Adicionar registro</button><span class="diary-status" id="diary-status" role="status"></span>
    </form>
@@ -496,8 +533,8 @@ function renderDiaryEntries(id,logs){
    <div class="diary-list">${sorted.length?sorted.map(log=>`<article class="diary-entry"><div class="diary-entry-head"><strong>Episódio ${Number(log.episode)||0}</strong><span class="meta">${diaryDate(log.watchedAt)}</span></div><p>${esc(log.comment)}</p><div class="diary-actions"><button type="button" data-edit-log="${esc(log.id)}">Editar</button><button type="button" data-delete-log="${esc(log.id)}">Excluir</button></div></article>`).join(""):'<div class="msg">Você ainda não registrou nenhum episódio deste anime.</div>'}</div>`;
   const form=$("diary-form");
   form.addEventListener("submit",async ev=>{
-    ev.preventDefault();const status=$("diary-status"),episode=Number($("diary-episode").value),watchedAt=$("diary-date").value,comment=$("diary-comment").value.trim();
-    if(!Number.isInteger(episode)||episode<0||!watchedAt||!comment){status.textContent="Preencha episódio, data e comentário.";return}
+    ev.preventDefault();const status=$("diary-status"),episode=Number($("diary-episode").value),watchedAt=$("diary-forgot").checked?"":$("diary-date").value,comment=$("diary-comment").value.trim();
+    if(!Number.isInteger(episode)||episode<0||(!$("diary-forgot").checked&&!watchedAt)||!comment){status.textContent="Preencha episódio, data (ou marque Esqueci) e comentário.";return}
     const submit=form.querySelector('button[type="submit"]');submit.disabled=true;status.textContent="Salvando…";
     try{await hubFB.addLog({animeId:id,episode,watchedAt,comment});await loadDiary(id);}
     catch(err){status.textContent="Não foi possível salvar: "+(err.code||err.message);submit.disabled=false;}
@@ -505,6 +542,7 @@ function renderDiaryEntries(id,logs){
 }
 async function loadDiary(id){
   activeDiaryAnime=id;
+  if(fbUser){try{const note=await hubFB.getAnimeNote(id);Object.entries(note.themeComments||{}).forEach(([slug,comment])=>{const key=`${id}:${slug}`,field=document.getElementById(`tc-${key}`);if(field)field.value=comment||""})}catch(e){}}
   if(!fbUser){$("diary-content").innerHTML='<div class="msg">Entre com o Google para criar e consultar seu diário pessoal.</div>';return}
   $("diary-content").className="msg";$("diary-content").textContent="Carregando diário…";
   try{const logs=await hubFB.getLogs(id);if(activeDiaryAnime===id&&$("dlg").open)renderDiaryEntries(id,logs)}
@@ -542,9 +580,9 @@ window.addEventListener("fb-scores",e=>{
 document.addEventListener("submit",async e=>{
   const form=e.target.closest("[data-edit-form]");if(!form)return;e.preventDefault();
   const data=new FormData(form),episode=Number(data.get("episode")),watchedAt=String(data.get("watchedAt")||""),comment=String(data.get("comment")||"").trim();
-  if(!Number.isInteger(episode)||episode<0||!watchedAt||!comment)return;
+  const dateForgotten=data.get("dateForgotten")==="on";if(!Number.isInteger(episode)||episode<0||(!dateForgotten&&!watchedAt)||!comment)return;
   const btn=form.querySelector('button[type="submit"]');btn.disabled=true;
-  try{await hubFB.updateLog(form.dataset.editForm,{episode,watchedAt,comment});await loadDiary(activeDiaryAnime)}
+  try{await hubFB.updateLog(form.dataset.editForm,{episode,watchedAt:dateForgotten?"":watchedAt,comment});await loadDiary(activeDiaryAnime)}
   catch(err){alert("Não foi possível salvar a edição: "+(err.code||err.message));btn.disabled=false;}
 });
 
@@ -556,13 +594,20 @@ document.addEventListener("click",async e=>{
   const detailTab=e.target.closest("[data-detail-tab]");
   if(detailTab){const name=detailTab.dataset.detailTab;
     document.querySelectorAll("[data-detail-tab]").forEach(b=>b.setAttribute("aria-selected",String(b===detailTab)));
-    $("detail-themes").classList.toggle("hidden",name!=="themes");$("detail-diary").classList.toggle("hidden",name!=="diary");
+    ["themes","experience","diary"].forEach(tabName=>$(`detail-${tabName}`).classList.toggle("hidden",name!==tabName));
     if(name==="diary"&&activeDiaryAnime!=null)loadDiary(activeDiaryAnime);
+    if(name==="experience"&&activeDiaryAnime!=null)loadExperience(activeDiaryAnime);
     return;
   }
+  const editDate=e.target.closest('input[name="dateForgotten"]');
+  if(editDate){const date=editDate.closest("form").querySelector('input[name="watchedAt"]');date.disabled=editDate.checked;if(editDate.checked)date.value="";else if(!date.value)date.value=localDateISO();return;}
+  const forgot=e.target.closest("#diary-forgot");
+  if(forgot){$("diary-date").disabled=forgot.checked;if(forgot.checked)$("diary-date").value="";else if(!$("diary-date").value)$("diary-date").value=localDateISO();return;}
+  const saveTheme=e.target.closest("[data-save-theme-comment]");
+  if(saveTheme){const slug=saveTheme.dataset.saveThemeComment,key=`${activeDiaryAnime}:${slug}`,field=document.getElementById(`tc-${key}`),status=document.getElementById(`tcs-${key}`);saveTheme.disabled=true;status.textContent="Salvando…";try{await hubFB.saveThemeComment(activeDiaryAnime,slug,field.value.trim());status.textContent="Salvo!"}catch(err){status.textContent="Erro: "+(err.code||err.message)}finally{saveTheme.disabled=false}return;}
   const edit=e.target.closest("[data-edit-log]");
   if(edit){const id=activeDiaryAnime,logId=edit.dataset.editLog;try{const logs=await hubFB.getLogs(id),log=logs.find(x=>x.id===logId);if(!log)return;
-    const entry=edit.closest(".diary-entry");entry.innerHTML=`<form class="diary-form" data-edit-form="${esc(logId)}"><div><label>Episódio</label><input name="episode" type="number" min="0" step="1" value="${Number(log.episode)||0}" required></div><div><label>Data</label><input name="watchedAt" type="date" value="${esc(log.watchedAt||"")}" required></div><div class="wide-field"><label>Comentário</label><textarea name="comment" required>${esc(log.comment)}</textarea></div><button type="submit">Salvar edição</button><button type="button" data-cancel-edit>Cancelar</button></form>`;
+    const entry=edit.closest(".diary-entry");entry.innerHTML=`<form class="diary-form" data-edit-form="${esc(logId)}"><div><label>Episódio</label><input name="episode" type="number" min="0" step="1" value="${Number(log.episode)||0}" required></div><div><label>Data</label><input name="watchedAt" type="date" value="${esc(log.watchedAt||"")}" ${log.watchedAt?"":"disabled"}><label style="display:flex;align-items:center;gap:7px;margin-top:8px"><input name="dateForgotten" type="checkbox" style="width:auto" ${log.watchedAt?"":"checked"}> Esqueci a data</label></div><div class="wide-field"><label>Comentário</label><textarea name="comment" required>${esc(log.comment)}</textarea></div><button type="submit">Salvar edição</button><button type="button" data-cancel-edit>Cancelar</button></form>`;
   }catch(err){alert("Não foi possível abrir o registro: "+(err.code||err.message))}return;}
   const del=e.target.closest("[data-delete-log]");
   if(del){if(!confirm("Excluir este registro do diário?"))return;try{await hubFB.deleteLog(del.dataset.deleteLog);await loadDiary(activeDiaryAnime)}catch(err){alert("Não foi possível excluir: "+(err.code||err.message))}return;}
@@ -592,7 +637,7 @@ $("user").value=saved||DEFAULT_USER;load();
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 import {getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
-import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,onSnapshot,doc,setDoc,deleteDoc,serverTimestamp,addDoc,getDocs,query,where,updateDoc} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
+import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,onSnapshot,doc,setDoc,deleteDoc,serverTimestamp,addDoc,getDocs,getDoc,query,where,updateDoc} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
 
 const app=initializeApp({
   apiKey:"AIzaSyCgHMZV_wIFOV4QuJi3bBRbu_iOXSJ1ahY",
@@ -612,6 +657,9 @@ window.hubFB={
   logout:()=>signOut(auth),
   save:(key,n)=>setDoc(doc(db,"songScores",key),{score:n,updatedAt:serverTimestamp()}),
   remove:key=>deleteDoc(doc(db,"songScores",key)),
+  getAnimeNote:async animeId=>{if(!auth.currentUser)throw new Error("Faça login para consultar suas informações.");const snap=await getDoc(doc(db,"users",auth.currentUser.uid,"animeNotes",String(animeId)));return snap.exists()?snap.data():{}},
+  saveAnimeNote:(animeId,data)=>{if(!auth.currentUser)throw new Error("Faça login para salvar suas informações.");return setDoc(doc(db,"users",auth.currentUser.uid,"animeNotes",String(animeId)),{animeId:Number(animeId),...data,updatedAt:serverTimestamp()},{merge:true})},
+  saveThemeComment:async(animeId,slug,comment)=>{if(!auth.currentUser)throw new Error("Faça login para salvar comentários.");return setDoc(doc(db,"users",auth.currentUser.uid,"animeNotes",String(animeId)),{animeId:Number(animeId),themeComments:{[slug]:comment},updatedAt:serverTimestamp()},{merge:true})},
   addLog:({animeId,episode,watchedAt,comment})=>{
     if(!auth.currentUser)throw new Error("Faça login para salvar no diário.");
     return addDoc(collection(db,"users",auth.currentUser.uid,"episodeLogs"),{animeId:Number(animeId),episode:Number(episode),watchedAt,comment,createdAt:serverTimestamp()});
