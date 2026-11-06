@@ -413,7 +413,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 <script>
 /* =====================================================================
    CONTROLE DE VERSÃO DO PROJETO — LEIA ANTES DE MODIFICAR ESTE ARQUIVO
-   Versão atual: 5
+   Versão atual: 6
    REGRA OBRIGATÓRIA PARA QUALQUER IA OU PESSOA QUE EDITAR O PROJETO:
    - Sempre que fizer qualquer modificação no código, incremente HUB_VERSION
      em exatamente 1 (ex.: 4 -> 5), mesmo que seja uma correção pequena.
@@ -424,7 +424,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
      anterior. Se receber um arquivo com versão menor, avise o usuário.
    - Antes de editar, procure HUB_VERSION e confira a versão recebida.
    ===================================================================== */
-const HUB_VERSION = 5;
+const HUB_VERSION = 6;
 window.HUB_VERSION = HUB_VERSION;
 document.getElementById("project-version").textContent = `v${HUB_VERSION}`;
 
@@ -645,6 +645,11 @@ async function openAnime(id){
   let apiAvailable=false;
   try{
     const th=await fetchThemes(id);apiAvailable=true;
+    // Se a API responder sem catálogo e o cache local não tiver metadados,
+    // tenta recuperar a cópia persistida no Firestore antes de mostrar OP1/ED1.
+    if(!th.length&&(!Array.isArray(note.themeCatalog)||!note.themeCatalog.length)){
+      try{note=await hubFB.getAnimeNote(id,{refresh:true})}catch(e){console.warn("Não foi possível atualizar o catálogo salvo de OP/ED",e)}
+    }
     const themeList=th.length?th:(note.themeCatalog||[]);
     // Backfill do catálogo no Firestore somente quando a lista mudou e a conta proprietária está conectada.
     if(th.length&&fbUser){
@@ -657,6 +662,11 @@ async function openAnime(id){
     if(slugs.length){try{Object.assign(SONG_SCORES,await hubFB.getSongScoresForAnime(id,slugs))}catch(e){}}
     renderThemeList(id,themeList,note,false);
   }catch(e){
+    // Em caso de indisponibilidade da AnimeThemes, não confia apenas no cache:
+    // se ele não tiver catálogo, consulta o Firestore diretamente (sem TTL).
+    if(!Array.isArray(note.themeCatalog)||!note.themeCatalog.length){
+      try{note=await hubFB.getAnimeNote(id,{refresh:true})}catch(refreshError){console.warn("Não foi possível recuperar o catálogo salvo no Firestore",refreshError)}
+    }
     const themeList=Array.isArray(note.themeCatalog)?note.themeCatalog:[];
     const slugs=[...new Set([...themeList.map(t=>t.slug),...Object.keys(note.themeComments||{}),...Object.values(PROVISIONAL_THEME_SLUGS)])];
     if(slugs.length){try{Object.assign(SONG_SCORES,await hubFB.getSongScoresForAnime(id,slugs))}catch(ignore){}}
@@ -994,7 +1004,7 @@ $("import-file").addEventListener("change",async e=>{
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 import {getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
-import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,onSnapshot,doc,setDoc,deleteDoc,serverTimestamp,addDoc,getDocs,getDoc,getDocsFromCache,getDocsFromServer,getDocFromCache,query,where,updateDoc,writeBatch} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
+import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,onSnapshot,doc,setDoc,deleteDoc,serverTimestamp,addDoc,getDocs,getDoc,getDocFromServer,getDocsFromCache,getDocsFromServer,getDocFromCache,query,where,updateDoc,writeBatch} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
 
 const app=initializeApp({
   apiKey:"AIzaSyCgHMZV_wIFOV4QuJi3bBRbu_iOXSJ1ahY",
@@ -1089,9 +1099,14 @@ window.hubFB={
     await setDoc(doc(db,"users",uid,"animeCatalog","_meta"),{anilistUser:username,lastSyncedAt:serverTimestamp(),itemCount:items.length,syncIntervalHours:24},{merge:true});
     return items.length;
   },
-  saveThemeCatalog:(animeId,themes)=>{
+  saveThemeCatalog:async(animeId,themes)=>{
     if(!auth.currentUser)throw new Error("Faça login para salvar a lista de músicas.");
-    return setDoc(doc(db,"users",auth.currentUser.uid,"animeNotes",String(animeId)),{animeId:Number(animeId),themeCatalog:themes.map(t=>({slug:t.slug,type:t.type,title:t.title,artist:t.artist,eps:t.eps||"",video:t.video||""})),themeCatalogUpdatedAt:serverTimestamp()},{merge:true});
+    const catalog=themes.map(t=>({slug:t.slug,type:t.type,title:t.title,artist:t.artist,eps:t.eps||"",video:t.video||""}));
+    await setDoc(doc(db,"users",auth.currentUser.uid,"animeNotes",String(animeId)),{animeId:Number(animeId),themeCatalog:catalog,themeCatalogUpdatedAt:serverTimestamp()},{merge:true});
+    // Mantém o IndexedDB sincronizado com o Firestore sem sobrescrever comentários,
+    // notas pessoais ou outros campos já presentes no cache.
+    const key=noteCacheKey(animeId),old=(await cacheGet(key))?.data||{};
+    await cacheSet(key,{...old,animeId:Number(animeId),themeCatalog:catalog});
   },
   getAllAnimeNotes:async({refresh=false}={})=>{
     if(!auth.currentUser||!isOwner())throw new Error("Faça login com a conta proprietária para consultar suas anotações.");
@@ -1173,7 +1188,16 @@ window.hubFB={
     for(const row of backup.data.episodeLogs)await cacheDelete(logsCacheKey(row.animeId));
     return {counts:validation.counts,total:validation.total};
   },
-  getAnimeNote:async animeId=>freshOrCached(noteCacheKey(animeId),async()=>{const snap=await getDoc(notePath(animeId));return snap.exists()?snap.data():{}}),
+  getAnimeNote:async (animeId,{refresh=false}={})=>{
+    const key=noteCacheKey(animeId);
+    if(refresh){
+      const snap=await getDocFromServer(notePath(animeId));
+      const fresh=snap.exists()?snap.data():{};
+      await cacheSet(key,fresh);
+      return fresh;
+    }
+    return freshOrCached(key,async()=>{const snap=await getDoc(notePath(animeId));return snap.exists()?snap.data():{}});
+  },
   saveAnimeNote:async(animeId,data)=>{requireOwner();await setDoc(notePath(animeId),{animeId:Number(animeId),...data,updatedAt:serverTimestamp()},{merge:true});const old=(await cacheGet(noteCacheKey(animeId)))?.data||{};await cacheSet(noteCacheKey(animeId),{...old,...data});await cacheDelete("stats:animeNotes");},
   saveThemeComment:async(animeId,slug,comment)=>{requireOwner();await setDoc(notePath(animeId),{animeId:Number(animeId),themeComments:{[slug]:comment},updatedAt:serverTimestamp()},{merge:true});const old=(await cacheGet(noteCacheKey(animeId)))?.data||{};await cacheSet(noteCacheKey(animeId),{...old,themeComments:{...(old.themeComments||{}),[slug]:comment}});await cacheDelete("stats:animeNotes");},
   associateProvisionalTheme:async(animeId,kind,targetSlug)=>{
