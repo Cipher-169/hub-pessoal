@@ -349,7 +349,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
   <p class="sub" id="sub"></p>
   <div class="sync-tools">
     <span class="sync-status" id="sync-status" role="status">Entre com Google para manter seu catálogo salvo.</span>
-    <div class="sync-actions"><button id="sync-now" type="button">Sincronizar agora</button><button id="export-data" type="button" class="hidden">Exportar meus dados (JSON)</button></div>
+    <div class="sync-actions"><button id="export-data" type="button" class="hidden">Exportar meus dados (JSON)</button><button id="import-data" type="button" class="hidden">Importar backup (JSON)</button><input id="import-file" type="file" accept=".json,application/json" class="hidden" aria-label="Selecionar backup JSON"></div>
   </div>
   <p class="meta" id="me"></p>
   <div class="tabs" role="tablist">
@@ -612,7 +612,7 @@ async function performAniListSync(user){
 async function load({sync=false}={}){
   const user=$("user").value.trim();if(!user||loadingCatalog)return;
   loadingCatalog=true;
-  const button=$("load"),syncButton=$("sync-now");button.disabled=true;syncButton.disabled=true;
+  const button=$("load");button.disabled=true;
   try{
     if(fbUser&&!sync){
       $("sub").textContent="Carregando seu catálogo salvo…";
@@ -635,7 +635,7 @@ async function load({sync=false}={}){
   }catch(e){
     if(animes.length){$("sub").textContent=`Não foi possível sincronizar com o AniList. Exibindo os ${animes.length} animes já carregados. (${e.message})`;$("sync-status").textContent="Catálogo local preservado; sincronização indisponível.";}
     else{$("sub").textContent="";$("view").innerHTML=`<div class="msg err">Não consegui carregar "${esc(user)}": ${esc(e.message)}. ${fbUser?"Seus dados salvos não foram alterados.":"Confira o usuário e se o perfil é público."}</div>`;}
-  }finally{loadingCatalog=false;button.disabled=false;syncButton.disabled=false;}
+  }finally{loadingCatalog=false;button.disabled=false;}
 }
 document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>{tab=b.dataset.tab;
   document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));if(animes.length)render()}));
@@ -644,7 +644,7 @@ function updateMe(){
   $("me").innerHTML=fbUser?`Logado como ${esc(fbUser.name)} · UID: <code>${esc(fbUser.uid)}</code> <button class="cp" data-copy="${esc(fbUser.uid)}">Copiar UID</button>`:"";
   $("login").textContent=fbUser?"Sair":"Entrar com Google";
   $("export-data").classList.toggle("hidden",!fbUser);
-  $("sync-now").disabled=!fbUser;
+  $("import-data").classList.toggle("hidden",!fbUser);
   if(!fbUser)$("sync-status").textContent="Entre com Google para sincronizar e manter seu catálogo salvo no Firestore.";
 }
 window.addEventListener("fb-user",e=>{fbUser=e.detail;updateMe();load({sync:false})});
@@ -706,10 +706,6 @@ document.addEventListener("click",async e=>{
 const b=e.target.closest("[data-id]");if(b&&!$("dlg").contains(b))openAnime(+b.dataset.id);
   const c=e.target.closest("[data-copy]");if(c){navigator.clipboard?.writeText(c.dataset.copy);c.textContent="Copiado"}});
 $("load").addEventListener("click",()=>load({sync:true}));
-$("sync-now").addEventListener("click",()=>{
-  if(!fbUser){alert("Entre com Google para sincronizar seu catálogo no Firestore.");return}
-  load({sync:true});
-});
 $("export-data").addEventListener("click",async()=>{
   const button=$("export-data");button.disabled=true;button.textContent="Preparando backup…";
   try{
@@ -719,6 +715,30 @@ $("export-data").addEventListener("click",async()=>{
     $("sync-status").textContent="Backup JSON exportado com sucesso.";
   }catch(err){alert("Não foi possível exportar seus dados: "+(err.code||err.message))}
   finally{button.disabled=false;button.textContent="Exportar meus dados (JSON)"}
+});
+$("import-data").addEventListener("click",()=>{
+  if(!fbUser){alert("Entre com Google antes de importar um backup.");return}
+  $("import-file").click();
+});
+$("import-file").addEventListener("change",async e=>{
+  const file=e.target.files?.[0];if(!file)return;
+  const button=$("import-data");button.disabled=true;button.textContent="Lendo backup…";
+  try{
+    if(file.size>25*1024*1024)throw new Error("O arquivo ultrapassa o limite de 25 MB.");
+    const backup=JSON.parse(await file.text());
+    const preview=hubFB.validateBackup(backup);
+    const counts=Object.entries(preview.counts).map(([name,count])=>`${name}: ${count}`).join("\n");
+    const sourceUid=backup.user?.uid||"não informado";
+    const message=`Backup válido\nExportado em: ${backup.exportedAt||"data não informada"}\nConta de origem: ${sourceUid}\n\n${counts}\n\nOs dados serão mesclados à conta atualmente conectada (${fbUser.uid}). Nada que já existe será apagado. Registros com o mesmo ID serão atualizados. Deseja continuar?`;
+    if(!confirm(message))return;
+    button.textContent="Importando…";
+    const result=await hubFB.importData(backup);
+    $("sync-status").textContent=`Importação concluída: ${result.total} registros restaurados/mesclados.`;
+    alert(`Backup importado com sucesso!\n${Object.entries(result.counts).map(([name,count])=>`${name}: ${count}`).join("\n")}\n\nRecarregue a página se alguma informação ainda não aparecer.`);
+  }catch(err){
+    alert("Não foi possível importar o backup: "+(err.code||err.message));
+    $("sync-status").textContent="A importação não foi concluída. Seus dados existentes foram preservados; se houve falha durante o envio, parte dos registros pode já ter sido mesclada.";
+  }finally{button.disabled=false;button.textContent="Importar backup (JSON)";e.target.value=""}
 });
 $("user").addEventListener("keydown",e=>{if(e.key==="Enter")load()});
 let saved=null;try{saved=localStorage.getItem("hub_user")}catch(e){}
@@ -805,6 +825,55 @@ window.hubFB={
     };
     const docs=snap=>snap.docs.map(d=>({id:d.id,...clean(d.data())}));
     return {format:"hub-animes-backup",version:1,exportedAt:new Date().toISOString(),user:{uid,displayName:auth.currentUser.displayName||null},data:{animeCatalog:docs(catalog),animeNotes:docs(notes),episodeLogs:docs(logs),songScores:docs(scores)}};
+  },
+  validateBackup:backup=>{
+    if(!backup||typeof backup!=="object"||backup.format!=="hub-animes-backup"||backup.version!==1)throw new Error("Formato ou versão de backup não reconhecidos.");
+    if(!backup.data||typeof backup.data!=="object")throw new Error("O arquivo não contém a seção de dados.");
+    const names=["animeCatalog","animeNotes","episodeLogs","songScores"],counts={};
+    for(const name of names){
+      const rows=backup.data[name];
+      if(!Array.isArray(rows))throw new Error(`A seção ${name} está ausente ou inválida.`);
+      const seen=new Set();
+      for(const row of rows){
+        if(!row||typeof row!=="object"||Array.isArray(row)||typeof row.id!=="string"||!row.id.trim()||row.id.includes("/"))throw new Error(`Há um registro inválido na seção ${name}.`);
+        if(seen.has(row.id))throw new Error(`O backup contém IDs duplicados em ${name}.`);
+        seen.add(row.id);
+      }
+      counts[name]=rows.length;
+    }
+    return {counts,total:Object.values(counts).reduce((a,b)=>a+b,0)};
+  },
+  importData:async backup=>{
+    if(!auth.currentUser)throw new Error("Faça login para importar seus dados.");
+    const validation=window.hubFB.validateBackup(backup),uid=auth.currentUser.uid;
+    const dateFields=new Set(["createdAt","updatedAt","syncedAt","lastSyncedAt","themeCatalogUpdatedAt"]);
+    const restoreDates=(value,key="")=>{
+      if(value===null||value===undefined)return value;
+      if(dateFields.has(key)&&typeof value==="string"){
+        const time=Date.parse(value);if(Number.isFinite(time))return new Date(time);
+      }
+      if(Array.isArray(value))return value.map(v=>restoreDates(v));
+      if(typeof value==="object"){const out={};for(const [k,v] of Object.entries(value))out[k]=restoreDates(v,k);return out;}
+      return value;
+    };
+    const destinations={
+      animeCatalog:row=>doc(db,"users",uid,"animeCatalog",row.id),
+      animeNotes:row=>doc(db,"users",uid,"animeNotes",row.id),
+      episodeLogs:row=>doc(db,"users",uid,"episodeLogs",row.id),
+      songScores:row=>doc(db,"songScores",row.id)
+    };
+    const operations=[];
+    for(const name of Object.keys(destinations))for(const row of backup.data[name]){
+      const {id,...fields}=row;
+      operations.push({ref:destinations[name](row),data:restoreDates(fields)});
+    }
+    // Firestore aceita até 500 operações por lote; usamos margem para manter o limite.
+    for(let i=0;i<operations.length;i+=400){
+      const batch=writeBatch(db);
+      for(const op of operations.slice(i,i+400))batch.set(op.ref,op.data,{merge:true});
+      await batch.commit();
+    }
+    return {counts:validation.counts,total:validation.total};
   },
   getAnimeNote:async animeId=>{if(!auth.currentUser)throw new Error("Faça login para consultar suas informações.");const snap=await getDoc(doc(db,"users",auth.currentUser.uid,"animeNotes",String(animeId)));return snap.exists()?snap.data():{}},
   saveAnimeNote:(animeId,data)=>{if(!auth.currentUser)throw new Error("Faça login para salvar suas informações.");return setDoc(doc(db,"users",auth.currentUser.uid,"animeNotes",String(animeId)),{animeId:Number(animeId),...data,updatedAt:serverTimestamp()},{merge:true})},
