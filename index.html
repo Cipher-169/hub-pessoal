@@ -334,7 +334,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 .experience-form textarea,.theme-comment{min-height:84px;resize:vertical}
 .experience-form button,.theme-comment-save{justify-self:start;background:var(--sun);color:#1a0d08;border:0;border-radius:999px;padding:9px 17px;font-weight:600}
 .form-hint{color:var(--muted);font-size:.8rem;margin:4px 0 0}
-.theme-comment-wrap{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.theme-provisional{border-style:dashed!important;border-color:rgba(245,166,60,.55)!important}.theme-comment-wrap{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
 .theme-comment-wrap label{display:block;color:var(--muted);font-size:.8rem;margin-bottom:5px}
 .theme-comment-save{margin-top:7px}.experience-status{color:var(--muted);font-size:.82rem;min-height:1.2em}
 @media(max-width:560px){.diary-form{grid-template-columns:1fr}.diary-form textarea,.diary-form .wide-field{grid-column:auto}.diary-entry-head{align-items:flex-start;flex-direction:column}}
@@ -411,6 +411,9 @@ const bg=u=>u?`style="background-image:url('${u}')"`:"";
 let animes=[],tab="now",fbUser=null,fbErr=null,loadingCatalog=false;
 const byId=id=>animes.find(a=>a.id===id);
 const themeCache=new Map();
+const PROVISIONAL_THEME_SLUGS={OP:"__PROVISIONAL_OP__",ED:"__PROVISIONAL_ED__"};
+const themeTypeFromSlug=slug=>{const value=String(slug||"").toUpperCase();if(value===PROVISIONAL_THEME_SLUGS.OP)return "OP";if(value===PROVISIONAL_THEME_SLUGS.ED)return "ED";return value.match(/^(OP|ED)/)?.[1]||""};
+const isProvisionalThemeSlug=slug=>Object.values(PROVISIONAL_THEME_SLUGS).includes(slug);
 
 async function fetchList(user){
   const r=await fetch("https://graphql.anilist.co",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({query:QUERY,variables:{u:user}})});
@@ -425,11 +428,15 @@ async function fetchList(user){
 async function fetchThemes(id){
   if(themeCache.has(id)) return themeCache.get(id);
   const r=await fetch(`https://api.animethemes.moe/anime?filter[has]=resources&filter[site]=AniList&filter[external_id]=${id}&include=animethemes.animethemeentries.videos,animethemes.song.artists`);
+  if(!r.ok)throw new Error(`AnimeThemes HTTP ${r.status}`);
   const j=await r.json();
-  const th=(j.anime?.[0]?.animethemes||[]).map(t=>({slug:t.slug,type:t.type,title:t.song?.title||"(sem título)",
+  if(!j||!Array.isArray(j.anime))throw new Error("Resposta inválida do AnimeThemes");
+  const th=(j.anime[0]?.animethemes||[]).map(t=>({slug:t.slug,type:t.type,title:t.song?.title||"(sem título)",
     artist:(t.song?.artists||[]).map(a=>a.name).join(", "),eps:t.animethemeentries?.[0]?.episodes||"",
     video:(t.animethemeentries?.[0]?.videos||[]).sort((a,b)=>(b.resolution||0)-(a.resolution||0))[0]?.link}));
-  themeCache.set(id,th); return th;
+  // Não guardar respostas vazias: uma falha/retorno transitório não deve virar cache permanente nesta sessão.
+  if(th.length)themeCache.set(id,th);
+  return th;
 }
 
 function renderHero(){
@@ -493,31 +500,83 @@ async function renderHall(){
   }
   const keys=Object.keys(SONG_SCORES);
   if(!keys.length){$("view").innerHTML='<div class="msg">Ainda não há músicas com nota.</div>';return}
-  const ids=[...new Set(keys.map(k=>+k.split(":")[0]))],items=[];
-  await Promise.all(ids.map(async id=>{try{
-    const th=await fetchThemes(id),a=byId(id);
-    th.forEach(t=>{const sc=SONG_SCORES[`${id}:${t.slug}`];if(sc!=null)items.push({type:t.type,season:a?.season,year:a?.year,id,cover:a?.cover||"",title:t.title,sub:`${t.artist} · ${a?.title||"Anime "+id}`,score:sc,song:true})});
-  }catch(e){}}));
-  const l=filtered(items.filter(i=>i.type===$("type").value)).sort((a,b)=>b.score-a.score).slice(0,+$("limit").value);
-  $("view").innerHTML=ranking(l);
+  const ids=[...new Set(keys.map(k=>Number(k.split(":")[0])).filter(Number.isFinite))],catalogs=new Map();
+  let offlineCount=0,apiFailureCount=0;
+  await Promise.all(ids.map(async id=>{
+    let themes=[];
+    try{themes=await fetchThemes(id)}catch(e){apiFailureCount++;/* usa o catálogo salvo abaixo */}
+    if(!themes.length){
+      try{
+        const note=await hubFB.getAnimeNote(id);
+        if(Array.isArray(note?.themeCatalog)&&note.themeCatalog.length){themes=note.themeCatalog;offlineCount++;}
+      }catch(e){}
+    }
+    catalogs.set(id,new Map(themes.map(t=>[t.slug,t])));
+  }));
+  // Monta o ranking a partir das notas salvas, não da lista retornada pela API.
+  // Assim, mesmo sem metadados, OP1/ED1 continuam aparecendo com sua nota.
+  const items=[];
+  keys.forEach(key=>{
+    const cut=key.indexOf(":");if(cut<1)return;
+    const id=Number(key.slice(0,cut)),slug=key.slice(cut+1),score=SONG_SCORES[key];
+    if(!Number.isFinite(id)||score==null)return;
+    const theme=catalogs.get(id)?.get(slug),a=byId(id);
+    const inferredType=themeTypeFromSlug(slug);
+    const type=theme?.type||inferredType;
+    items.push({type,season:a?.season,year:a?.year,id,cover:a?.cover||"",title:theme?.title||(isProvisionalThemeSlug(slug)?`${inferredType} provisória`:slug),
+      sub:`${theme?.artist?theme.artist+" · ":""}${a?.title||"Anime "+id}`,score,song:true});
+  });
+  const selected=items.filter(i=>i.type===$("type").value);
+  const l=filtered(selected).sort((a,b)=>b.score-a.score).slice(0,+$("limit").value);
+  const notice=apiFailureCount?`<p class="meta">AnimeThemes falhou ao responder para ${apiFailureCount} anime(s). O ranking está usando listas salvas e, quando necessário, os códigos OP/ED das suas avaliações.</p>`:(offlineCount?`<p class="meta">O ranking está usando listas de músicas salvas anteriormente para ${offlineCount} anime(s).</p>`:"");
+  const genericCount=l.filter(i=>!catalogs.get(i.id)?.has(i.title) && i.title===i.title.toUpperCase() && /^(OP|ED)\d*$/i.test(i.title)).length;
+  const genericNotice=genericCount?'<p class="meta">Algumas músicas aparecem pelo código (OP1, ED1 etc.) porque os títulos não estão disponíveis no momento.</p>':"";
+  $("view").innerHTML=notice+genericNotice+ranking(l);
 }
 
 function renderThemeList(id,th,note,offline=false){
-  const root=$("themes"),comments=note?.themeComments||{};
+  const root=$("themes"),comments=note?.themeComments||{},themes=Array.isArray(th)?th:[];
   root.className="";
-  if(!th?.length){
-    const savedComments=Object.entries(comments);
-    if(savedComments.length){
-      root.innerHTML=`<p class="meta">${offline?"AnimeThemes indisponível. Exibindo seus comentários pessoais que já estavam salvos.":"Não há músicas cadastradas para exibir."}</p>`+savedComments.map(([slug,comment])=>`<article class="theme"><b>${esc(slug)}</b><p style="white-space:pre-wrap;margin:9px 0 0">${esc(comment||"")}</p></article>`).join("");
-    }else root.innerHTML=`<div class="msg">${offline?"Não foi possível consultar o AnimeThemes e ainda não existe uma lista de músicas salva para este anime.":"O AnimeThemes não tem OP/ED cadastrado pra esse anime."}</div>`;
+  const realSlugs=new Set(themes.map(t=>t.slug));
+  const scoreSlugs=Object.keys(SONG_SCORES).filter(key=>key.startsWith(`${id}:`)).map(key=>key.slice(String(id).length+1));
+  const savedOrphans=[...new Set([...Object.keys(comments),...scoreSlugs])].filter(slug=>!realSlugs.has(slug)&&!isProvisionalThemeSlug(slug));
+  const orphanTypes=new Set(savedOrphans.map(themeTypeFromSlug).filter(Boolean));
+  const provisionalKinds=offline&&!themes.length?["OP","ED"].filter(kind=>!orphanTypes.has(kind)):[];
+  const hasSavedProvisional=Object.entries(PROVISIONAL_THEME_SLUGS).some(([kind,slug])=>
+    Object.prototype.hasOwnProperty.call(comments,slug)||SONG_SCORES[`${id}:${slug}`]!=null);
+  const provisionalKindsToRender=[...new Set([...provisionalKinds,...(hasSavedProvisional?Object.keys(PROVISIONAL_THEME_SLUGS).filter(kind=>Object.prototype.hasOwnProperty.call(comments,PROVISIONAL_THEME_SLUGS[kind])||SONG_SCORES[`${id}:${PROVISIONAL_THEME_SLUGS[kind]}`]!=null):[])])];
+  const renderCard=(t,{provisional=false,orphan=false}={})=>{
+    const key=`${id}:${t.slug}`,sc=SONG_SCORES[key],comment=comments[t.slug]||"";
+    const title=provisional?`${t.type} provisória`:t.title||t.slug;
+    const meta=provisional?"Cadastro temporário · sem identificação da música":(orphan?"Informações da música indisponíveis":"");
+    let association="";
+    if(provisional&&!offline&&themes.length&&fbUser){
+      association=`<div class="theme-comment-wrap"><label for="associate-${t.type}">Quando a API voltou, escolha a música correspondente para transferir sua avaliação:</label><select id="associate-${t.type}" style="width:100%;background:#0c1220;border:1px solid var(--line);border-radius:9px;padding:9px;color:var(--text)"><option value="">Selecione uma música…</option>${themes.filter(x=>x.type===t.type).map(x=>`<option value="${esc(x.slug)}">${esc(x.title||x.slug)}${x.artist?` — ${esc(x.artist)}`:""}</option>`).join("")}</select><button class="theme-comment-save" data-associate-provisional="${t.type}">Associar avaliação</button><span class="experience-status" id="associate-status-${t.type}"></span></div>`;
+    }
+    return `<div class="theme ${provisional?"theme-provisional":""}"><b>${esc(title)}</b> ${!provisional&&t.title?`<span class="meta">${esc(t.artist||"")}${t.eps?" · eps "+esc(t.eps):""}</span>`:`<span class="meta">${esc(meta)}</span>`} ${sc!=null?sbadge(sc):""}
+      ${t.video&&!offline?`<video controls preload="none" src="${esc(t.video)}"></video>`:""}
+      ${fbUser?`<div style="margin-top:8px"><label class="meta" for="sc-${key}">Nota (opcional)</label><input class="sc" id="sc-${key}" type="text" inputmode="decimal" placeholder="0 a 10" value="${sc??""}"> <button class="cp" data-save="${key}">Salvar nota</button> <code id="st-${key}"></code></div><div class="theme-comment-wrap"><label for="tc-${key}">Minha impressão sobre esta música (opcional)</label><textarea class="theme-comment" id="tc-${key}" maxlength="5000" placeholder="O que achou da música, animação, cenas…">${esc(comment)}</textarea><button class="theme-comment-save" data-save-theme-comment="${esc(t.slug)}">Salvar comentário</button> <span class="experience-status" id="tcs-${key}"></span></div>${association}`:(comment?`<div class="theme-comment-wrap public-theme-comment"><span class="meta">Minha impressão</span><p style="white-space:pre-wrap;margin:8px 0 0">${esc(comment)}</p></div>`:"")}</div>`;
+  };
+  const cards=themes.map(t=>renderCard(t));
+  // Comentários de músicas antigas que não estão no catálogo atual continuam acessíveis.
+  savedOrphans.forEach(slug=>{
+    const kind=themeTypeFromSlug(slug);if(!kind)return;
+    cards.push(renderCard({slug,type:kind,title:slug,artist:"",video:""},{orphan:true}));
+  });
+  provisionalKindsToRender.forEach(kind=>{
+    const slug=PROVISIONAL_THEME_SLUGS[kind];
+    cards.push(renderCard({slug,type:kind,title:`${kind} provisória`,artist:"",video:""},{provisional:true}));
+  });
+  if(!cards.length){
+    root.innerHTML=`<div class="msg">${offline?"AnimeThemes indisponível e ainda não há catálogo salvo. Você pode começar com uma avaliação provisória de OP e ED.":"O AnimeThemes não tem OP/ED cadastrado pra esse anime."}</div>`;
+    if(offline){
+      // As duas entradas temporárias aparecem apenas durante a indisponibilidade, quando não há catálogo salvo.
+      root.innerHTML='<p class="meta">AnimeThemes indisponível. Você pode registrar uma avaliação provisória de cada tipo; quando a API voltar, poderá associá-las às músicas reais.</p>'+["OP","ED"].map(kind=>renderCard({slug:PROVISIONAL_THEME_SLUGS[kind],type:kind,title:kind,artist:"",video:""},{provisional:true})).join("");
+    }
     return;
   }
-  root.innerHTML=(offline?'<p class="meta">Exibindo a lista de músicas salva anteriormente. O AnimeThemes está indisponível no momento.</p>':"")+th.map(t=>{
-    const key=`${id}:${t.slug}`,sc=SONG_SCORES[key],comment=comments[t.slug]||"";
-    return `<div class="theme"><b>${esc(t.slug)}</b> · ${esc(t.title)} <span class="meta">${esc(t.artist)}${t.eps?" · eps "+esc(t.eps):""}</span> ${sc!=null?sbadge(sc):""}
-      ${t.video?`<video controls preload="none" src="${esc(t.video)}"></video>`:""}
-      ${fbUser?`<div style="margin-top:8px"><label class="meta" for="sc-${key}">Nota (opcional)</label><input class="sc" id="sc-${key}" type="text" inputmode="decimal" placeholder="0 a 10" value="${sc??""}"> <button class="cp" data-save="${key}">Salvar nota</button> <code id="st-${key}"></code></div><div class="theme-comment-wrap"><label for="tc-${key}">Minha impressão sobre esta música (opcional)</label><textarea class="theme-comment" id="tc-${key}" maxlength="5000" placeholder="O que achou da música, animação, cenas…">${esc(comment)}</textarea><button class="theme-comment-save" data-save-theme-comment="${esc(t.slug)}">Salvar comentário</button> <span class="experience-status" id="tcs-${key}"></span></div>`:(comment?`<div class="theme-comment-wrap public-theme-comment"><span class="meta">Minha impressão</span><p style="white-space:pre-wrap;margin:8px 0 0">${esc(comment)}</p></div>`:"")}</div>`
-  }).join("");
+  const intro=offline?'<p class="meta">AnimeThemes indisponível. Exibindo o catálogo salvo e suas anotações; os vídeos voltarão quando a API estiver disponível.</p>':(provisionalKindsToRender.length?'<p class="meta">A API voltou. Suas avaliações provisórias foram preservadas; associe cada uma à música correta para transferi-las.</p>':(savedOrphans.length?'<p class="meta">Algumas anotações antigas não foram encontradas no catálogo atual e continuam disponíveis abaixo.</p>':""));
+  root.innerHTML=intro+cards.join("");
 }
 
 async function openAnime(id){
@@ -530,11 +589,26 @@ async function openAnime(id){
    <section id="detail-diary" class="hidden"><div id="diary-content" class="msg">Carregando diário…</div></section></div>`;
   d.showModal();
   let note={};try{note=await hubFB.getAnimeNote(id)}catch(e){}
+  let apiAvailable=false;
   try{
-    const th=await fetchThemes(id),themeList=th.length?th:(note.themeCatalog||[]);
-    if(themeList.length){try{Object.assign(SONG_SCORES,await hubFB.getSongScoresForAnime(id,themeList.map(t=>t.slug)))}catch(e){}}
-    renderThemeList(id,themeList,note,!th.length);
-  }catch(e){renderThemeList(id,note.themeCatalog||[],note,true)}
+    const th=await fetchThemes(id);apiAvailable=true;
+    const themeList=th.length?th:(note.themeCatalog||[]);
+    // Backfill do catálogo no Firestore somente quando a lista mudou e a conta proprietária está conectada.
+    if(th.length&&fbUser){
+      const clean=th.map(t=>({slug:t.slug,type:t.type,title:t.title,artist:t.artist,eps:t.eps||"",video:t.video||""}));
+      if(JSON.stringify(clean)!==JSON.stringify(note.themeCatalog||[])){
+        try{await hubFB.saveThemeCatalog(id,th);note={...note,themeCatalog:clean}}catch(e){console.warn("Não foi possível salvar o catálogo de OP/ED",e)}
+      }
+    }
+    const slugs=[...new Set([...themeList.map(t=>t.slug),...Object.keys(note.themeComments||{}),...Object.values(PROVISIONAL_THEME_SLUGS)])];
+    if(slugs.length){try{Object.assign(SONG_SCORES,await hubFB.getSongScoresForAnime(id,slugs))}catch(e){}}
+    renderThemeList(id,themeList,note,false);
+  }catch(e){
+    const themeList=Array.isArray(note.themeCatalog)?note.themeCatalog:[];
+    const slugs=[...new Set([...themeList.map(t=>t.slug),...Object.keys(note.themeComments||{}),...Object.values(PROVISIONAL_THEME_SLUGS)])];
+    if(slugs.length){try{Object.assign(SONG_SCORES,await hubFB.getSongScoresForAnime(id,slugs))}catch(ignore){}}
+    renderThemeList(id,themeList,note,true);
+  }
   loadDiary(id);loadExperience(id);
 }
 
@@ -696,6 +770,15 @@ document.addEventListener("click",async e=>{
   if(editDate){const date=editDate.closest("form").querySelector('input[name="watchedAt"]');date.disabled=editDate.checked;if(editDate.checked)date.value="";else if(!date.value)date.value=localDateISO();return;}
   const forgot=e.target.closest("#diary-forgot");
   if(forgot){$("diary-date").disabled=forgot.checked;if(forgot.checked)$("diary-date").value="";else if(!$("diary-date").value)$("diary-date").value=localDateISO();return;}
+  const associate=e.target.closest("[data-associate-provisional]");
+  if(associate){
+    const kind=associate.dataset.associateProvisional,select=document.getElementById(`associate-${kind}`),status=document.getElementById(`associate-status-${kind}`),targetSlug=select?.value;
+    if(!targetSlug){if(status)status.textContent="Escolha uma música primeiro.";return;}
+    associate.disabled=true;if(status)status.textContent="Associando…";
+    try{await hubFB.associateProvisionalTheme(activeDiaryAnime,kind,targetSlug);await openAnime(activeDiaryAnime);}
+    catch(err){if(status)status.textContent=err.message||err.code||"Não foi possível associar.";associate.disabled=false;}
+    return;
+  }
   const saveTheme=e.target.closest("[data-save-theme-comment]");
   if(saveTheme){const slug=saveTheme.dataset.saveThemeComment,key=`${activeDiaryAnime}:${slug}`,field=document.getElementById(`tc-${key}`),status=document.getElementById(`tcs-${key}`);saveTheme.disabled=true;status.textContent="Salvando…";try{await hubFB.saveThemeComment(activeDiaryAnime,slug,field.value.trim());status.textContent="Salvo!"}catch(err){status.textContent="Erro: "+(err.code||err.message)}finally{saveTheme.disabled=false}return;}
   const edit=e.target.closest("[data-edit-log]");
@@ -937,6 +1020,30 @@ window.hubFB={
   getAnimeNote:async animeId=>freshOrCached(noteCacheKey(animeId),async()=>{const snap=await getDoc(notePath(animeId));return snap.exists()?snap.data():{}}),
   saveAnimeNote:async(animeId,data)=>{requireOwner();await setDoc(notePath(animeId),{animeId:Number(animeId),...data,updatedAt:serverTimestamp()},{merge:true});const old=(await cacheGet(noteCacheKey(animeId)))?.data||{};await cacheSet(noteCacheKey(animeId),{...old,...data});},
   saveThemeComment:async(animeId,slug,comment)=>{requireOwner();await setDoc(notePath(animeId),{animeId:Number(animeId),themeComments:{[slug]:comment},updatedAt:serverTimestamp()},{merge:true});const old=(await cacheGet(noteCacheKey(animeId)))?.data||{};await cacheSet(noteCacheKey(animeId),{...old,themeComments:{...(old.themeComments||{}),[slug]:comment}})},
+  associateProvisionalTheme:async(animeId,kind,targetSlug)=>{
+    requireOwner();if(!["OP","ED"].includes(kind))throw new Error("Tipo de música inválido.");
+    const sourceSlug=PROVISIONAL_THEME_SLUGS[kind],sourceKey=`${animeId}:${sourceSlug}`,targetKey=`${animeId}:${targetSlug}`;
+    if(sourceKey===targetKey)throw new Error("Escolha uma música diferente.");
+    const sourceRef=doc(db,"songScores",sourceKey),targetRef=doc(db,"songScores",targetKey),noteRef=notePath(animeId);
+    const [sourceSnap,targetSnap,noteSnap]=await Promise.all([getDoc(sourceRef),getDoc(targetRef),getDoc(noteRef)]);
+    const note=noteSnap.exists()?noteSnap.data():{},comments=note.themeComments||{},sourceComment=comments[sourceSlug]||"",targetComment=comments[targetSlug]||"";
+    if((sourceSnap.exists()&&targetSnap.exists())||(sourceComment&&targetComment))throw new Error("Essa música já possui uma nota ou comentário do mesmo tipo. Para evitar sobrescrever seus dados, escolha outra música ou mantenha a avaliação provisória.");
+    if(!sourceSnap.exists()&&!sourceComment)throw new Error("Não há nota ou comentário provisório para transferir.");
+    const batch=writeBatch(db);
+    if(sourceSnap.exists()){batch.set(targetRef,{...sourceSnap.data(),updatedAt:serverTimestamp()},{merge:true});batch.delete(sourceRef);}
+    const nextComments={...comments};
+    delete nextComments[sourceSlug];if(sourceComment)nextComments[targetSlug]=sourceComment;
+    batch.set(noteRef,{animeId:Number(animeId),themeComments:nextComments,updatedAt:serverTimestamp()},{merge:true});
+    await batch.commit();
+    const old=(await cacheGet(noteCacheKey(animeId)))?.data||note,updatedComments={...(old.themeComments||{})};
+    delete updatedComments[sourceSlug];if(sourceComment)updatedComments[targetSlug]=sourceComment;
+    await cacheSet(noteCacheKey(animeId),{...old,themeComments:updatedComments});
+    const allScores=(await cacheGet("songScores"))?.data||{};
+    if(sourceSnap.exists()){allScores[targetKey]=sourceSnap.data().score;delete allScores[sourceKey];await cacheSet("songScores",allScores);}
+    const animeScores=(await cacheGet(`songScoresAnime:${animeId}`))?.data||{};
+    if(sourceSnap.exists()){animeScores[targetKey]=sourceSnap.data().score;delete animeScores[sourceKey];await cacheSet(`songScoresAnime:${animeId}`,animeScores);}
+    return true;
+  },
   addLog:async({animeId,episode,watchedAt,comment})=>{requireOwner();await addDoc(logsPath(),{animeId:Number(animeId),episode:Number(episode),watchedAt,comment,createdAt:serverTimestamp()});await cacheDelete(logsCacheKey(animeId))},
   getLogs:async animeId=>freshOrCached(logsCacheKey(animeId),async()=>{const q=query(logsPath(),where("animeId","==",Number(animeId)));const snap=await getDocs(q);return snap.docs.map(d=>({id:d.id,...d.data(),createdAtMs:d.data().createdAt?.toMillis?.()||0}))}),
   updateLog:async(id,changes)=>{requireOwner();await updateDoc(doc(db,"users",OWNER_UID,"episodeLogs",id),{...changes,updatedAt:serverTimestamp()});await cacheDelete(logsCacheKey(window.activeDiaryAnime))},
