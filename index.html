@@ -1141,7 +1141,7 @@ async function renderStats(refresh=false){
        <div class="stats-panel"><h3>Alterações recentes</h3>${statList(provisionalRecent,"Ainda não há alterações de notas provisórias.")}</div>
       </div><p class="stats-note">O histórico registra somente quando a nota muda. A nota provisória permanece separada da avaliação definitiva do AniList.</p></section>
       <section class="stats-section"><h2>Como você assiste</h2><div class="stats-columns">
-       <div class="stats-panel"><h3>Idioma de consumo</h3>${statBars([["Legendado",languages.sub],["Dublado",languages.dub],["Outro",languages.other],["Não informado",languages.unknown]],totalNotes)}<p class="stats-note">Base: ${totalNotes} anime(s) com documento de dados pessoais.</p></div>
+       <div class="stats-panel"><h3>Idioma de consumo</h3>${statBars([["Legendado",languages.sub],["Dublado",languages.dub],["Outro",languages.other]],totalNotes)}${languages.unknown?`<p class="stats-note">Sem idioma informado: ${languages.unknown} anime(s).</p>`:""}<p class="stats-note">Base: ${totalNotes} anime(s) com documento de dados pessoais.</p></div>
        <div class="stats-panel"><h3>Plataformas</h3>${statBars(platforms,totalNotes)}${noPlatform?`<p class="stats-note">Sem plataforma informada: ${noPlatform} anime(s).</p>`:""}<p class="stats-note">Um anime pode aparecer em mais de uma plataforma; por isso, a soma pode superar o total de animes.</p></div>
       </div></section>
       <section class="stats-section"><h2>Diário de episódios</h2><div class="stats-columns">
