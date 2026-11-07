@@ -21,17 +21,22 @@ button{cursor:pointer}
 .anilist-profile-link{
   display:inline-flex;
   align-items:center;
-  margin-left:14px;
-  color:var(--muted);
-  font:500 .78rem var(--sans);
+  gap:6px;
+  margin-left:16px;
+  padding:7px 12px;
+  border:1px solid var(--sun);
+  border-radius:8px;
+  background:rgba(255, 255, 255, .07);
+  color:var(--sun);
+  font:600 .82rem var(--sans);
   text-decoration:none;
-  transition:color .2s;
+  transition:background .2s, transform .2s;
   vertical-align:middle;
 }
 
 .anilist-profile-link:hover{
-  color:var(--sun);
-  text-decoration:underline;
+  background:rgba(255, 255, 255, .15);
+  transform:translateY(-1px);
 }
 .project-version{display:inline-flex;align-items:center;margin-left:9px;padding:3px 9px;border:1px solid #ffffff35;border-radius:999px;color:var(--gold);font:500 .72rem var(--sans);vertical-align:middle;letter-spacing:.03em}
 .who{display:flex;gap:8px}
