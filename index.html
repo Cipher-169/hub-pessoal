@@ -419,6 +419,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
     <button role="tab" aria-selected="false" data-tab="ranking" id="ranking-tab" class="hidden">Ranking musical</button>
   </div>
   <div class="bar hidden" id="filters">
+    <input id="search-query" type="search" placeholder="Filtrar por nome do anime…" aria-label="Filtrar por nome">
     <select id="type" aria-label="Tipo"><option value="OP">Openings</option><option value="ED">Endings</option></select>
     <select id="year" aria-label="Ano"></select>
     <select id="season" aria-label="Temporada"><option value="">Todas as temporadas</option><option value="WINTER">Winter</option><option value="SPRING">Spring</option><option value="SUMMER">Summer</option><option value="FALL">Fall</option></select>
@@ -442,7 +443,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
      anterior. Se receber um arquivo com versão menor, avise o usuário.
    - Antes de editar, procure HUB_VERSION e confira a versão recebida.
    ===================================================================== */
-const HUB_VERSION = 9;
+const HUB_VERSION = 10;
 window.HUB_VERSION = HUB_VERSION;
 document.getElementById("project-version").textContent = `v${HUB_VERSION}`;
 
@@ -527,7 +528,18 @@ function renderNow(){
   $("view").innerHTML=sec("Assistindo",w,wide,"wides")+sec("Planejo, no ar agora",now,poster,"grid")+sec("Planejo, em breve",soon,poster,"grid")+
    (old.length?`<details><summary>Planejo, já lançados (${old.length})</summary><div class="grid">${old.map(poster).join("")}</div></details>`:"");
 }
-const filtered=l=>{const y=$("year").value,s=$("season").value;return l.filter(i=>(!y||String(i.year)===y)&&(!s||i.season===s))};
+const filtered = l => {
+  const y = $("year").value;
+  const s = $("season").value;
+  const q = ($("search-query")?.value || "").trim().toLowerCase();
+  
+  return l.filter(i => {
+    const matchYear = !y || String(i.year) === y;
+    const matchSeason = !s || i.season === s;
+    const matchQuery = !q || String(i.title || "").toLowerCase().includes(q);
+    return matchYear && matchSeason && matchQuery;
+  });
+};
 
 function ranking(items){ /* items: {id,cover,title,sub,score} */
   if(!items.length) return '<div class="msg">Nada com esses filtros.</div>';
@@ -746,7 +758,7 @@ async function loadExperience(id){
       return;
     }
 
-    const tierOptions=["95+", "90+", "85+", "80+", "75+", "70+", "-70"];
+    const tierOptions=["95+", "90+", "-90+", "85+", "80+", "-80+", "75+", "70+", "-70"];
 
     root.className="";
     root.innerHTML=`<p class="diary-intro">Informações opcionais e notas provisórias guardadas separadamente dos dados do AniList.</p>
@@ -1008,7 +1020,12 @@ async function load({sync=false}={}){
 }
 document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>{tab=b.dataset.tab;
   document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));if(animes.length||tab==="stats"||tab==="ranking")render()}));
-["type","year","season","limit"].forEach(id=>$(id).addEventListener("change",()=>animes.length&&render()));
+["search-query", "type", "year", "season", "limit"].forEach(id => {
+  const el = $(id);
+  if (!el) return;
+  el.addEventListener("input", () => animes.length && render());
+  if (el.tagName === "SELECT") el.addEventListener("change", () => animes.length && render());
+});
 function updateMe(){
   $("me").innerHTML=fbUser?`Logado como ${esc(fbUser.name)} · UID: <code>${esc(fbUser.uid)}</code> <button class="cp" data-copy="${esc(fbUser.uid)}">Copiar UID</button>`:"";
   $("login").textContent=fbUser?"Sair":"Entrar com Google";
