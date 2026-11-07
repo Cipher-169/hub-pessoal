@@ -74,6 +74,27 @@ dialog::backdrop{background:#000b}
 .dh::before{content:"";position:absolute;inset:0;background:linear-gradient(0deg,var(--bg),#0a0d1840)}
 .dh>*{position:relative}.dh h2{margin:0 0 4px}
 .dx{position:absolute!important;top:12px;right:14px;background:#0a0d18aa;border:1px solid #ffffff2a;border-radius:999px;padding:5px 14px}
+.dmode{position:absolute!important;top:12px;right:86px;background:#0a0d18aa;border:1px solid #ffffff2a;border-radius:999px;padding:5px 12px;color:var(--text);font-size:1.05rem;line-height:1.4}
+.dmode:hover,.dx:hover{border-color:var(--sun)}
+#dlg.fullscreen{
+  position:fixed;inset:0;margin:0;width:100vw;max-width:none;
+  height:100vh;height:100dvh;max-height:none;border:0;border-radius:0;
+  padding:0;overflow:auto;overscroll-behavior:contain;
+}
+#dlg.fullscreen .dh{min-height:clamp(230px,34vh,390px);padding:28px clamp(20px,5vw,72px) 30px;background-position:center 35%}
+#dlg.fullscreen .dh h2{font-size:clamp(2rem,5vw,3.8rem);max-width:1000px}
+#dlg.fullscreen .db{max-width:1240px;margin:0 auto;padding:22px clamp(18px,4vw,52px) 64px}
+#dlg.fullscreen .detail-tabs{position:sticky;top:0;z-index:5;padding:8px;background:rgba(9,12,22,.92);backdrop-filter:blur(16px)}
+#dlg.fullscreen .theme{padding:16px;margin:16px 0}
+#dlg.fullscreen .diary-entry,#dlg.fullscreen .experience-form{padding:18px}
+@media(max-width:600px){
+  #dlg.fullscreen .dh{min-height:250px;padding:24px 18px 22px}
+  #dlg.fullscreen .db{padding:16px 14px 42px}
+  #dlg.fullscreen .detail-tabs{gap:4px}
+  #dlg.fullscreen .detail-tabs button{padding:8px 10px;font-size:.88rem}
+  .dmode{right:82px}
+}
+
 .anime-refresh{align-self:flex-start;margin:10px 0 0;background:#0a0d18bb;border:1px solid var(--line);border-radius:999px;padding:7px 13px;color:var(--text);font-size:.82rem}
 .anime-refresh:hover{border-color:var(--sun)}.anime-refresh:disabled{opacity:.6;cursor:wait}
 .anime-refresh-status{margin-left:9px;color:var(--muted);font-size:.78rem}
@@ -416,8 +437,8 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
     <button role="tab" aria-selected="false" data-tab="panel">Painel</button>
     <button role="tab" aria-selected="false" data-tab="top">Top animes</button>
     <button role="tab" aria-selected="false" data-tab="hall">Hall da fama OP e ED</button>
-    <button role="tab" aria-selected="false" data-tab="stats" id="stats-tab" class="hidden">Estatísticas</button>
-    <button role="tab" aria-selected="false" data-tab="ranking" id="ranking-tab" class="hidden">Ranking musical</button>
+    <button role="tab" aria-selected="false" data-tab="stats" id="stats-tab">Estatísticas</button>
+    <button role="tab" aria-selected="false" data-tab="ranking" id="ranking-tab">Ranking musical</button>
   </div>
   <div class="bar hidden" id="filters">
     <input id="search-query" type="search" placeholder="Filtrar por nome do anime…" aria-label="Filtrar por nome">
@@ -433,7 +454,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 <script>
 /* =====================================================================
    CONTROLE DE VERSÃO DO PROJETO — LEIA ANTES DE MODIFICAR ESTE ARQUIVO
-   Versão atual: 11
+   Versão atual: 13
    REGRA OBRIGATÓRIA PARA QUALQUER IA OU PESSOA QUE EDITAR O PROJETO:
    - Sempre que fizer qualquer modificação no código, incremente HUB_VERSION
      em exatamente 1 (ex.: 4 -> 5), mesmo que seja uma correção pequena.
@@ -444,7 +465,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
      anterior. Se receber um arquivo com versão menor, avise o usuário.
    - Antes de editar, procure HUB_VERSION e confira a versão recebida.
    ===================================================================== */
-const HUB_VERSION = 11;
+const HUB_VERSION = 13;
 window.HUB_VERSION = HUB_VERSION;
 document.getElementById("project-version").textContent = `v${HUB_VERSION}`;
 
@@ -673,7 +694,7 @@ async function openAnime(id){
     ? `<span class="tier provisional-rating-badge" style="--c:var(--gold)">${esc(headerProvisionalScore)} <small>Provisória</small></span>`
     : (note?.provisionalTier ? `<span class="tier provisional-rating-badge" style="--c:var(--gold)">${esc(note.provisionalTier)} <small>Provisória antiga</small></span>` : '');
 
-  d.innerHTML=`<div class="dh" ${bg(a?.banner||a?.cover)}><button class="dx" onclick="dlg.close()">Fechar</button><h2>${esc(a?.title||"Anime "+id)}</h2>
+  d.innerHTML=`<div class="dh" ${bg(a?.banner||a?.cover)}><button type="button" class="dmode" data-dialog-mode aria-label="Expandir para tela cheia" title="Expandir para tela cheia">⛶</button><button class="dx" onclick="dlg.close()">Fechar</button><h2>${esc(a?.title||"Anime "+id)}</h2>
    <div class="meta">${a?when(a):""} ${a?.score?badge(a.score):""} ${provBadge} · <a href="${a?.url||"https://anilist.co/anime/"+id}" target="_blank" rel="noopener">AniList</a></div>
    <div><button type="button" class="anime-refresh" data-refresh-anime="${id}">↻ Atualizar dados deste anime</button><span class="anime-refresh-status" id="anime-refresh-status" role="status"></span></div></div>
    <div class="db"><div class="detail-tabs"><button type="button" data-detail-tab="themes" aria-selected="true">OP e ED</button><button type="button" data-detail-tab="experience" aria-selected="false">Minha experiência</button><button type="button" data-detail-tab="diary" aria-selected="false">Diário de episódios</button></div>
@@ -872,7 +893,6 @@ function statList(entries,empty="Sem dados registrados."){
   return entries.length?`<ul class="stat-list">${entries.map(([label,value])=>`<li><span>${esc(label)}</span><b>${esc(value)}</b></li>`).join("")}</ul>`:`<p class="meta">${empty}</p>`;
 }
 async function renderStats(refresh=false){
-  if(!fbUser){$("view").innerHTML='<div class="msg">Entre com a conta proprietária para consultar suas estatísticas pessoais.</div>';return;}
   if(statsLoading)return;statsLoading=true;
   $("view").innerHTML='<div class="msg">Calculando suas estatísticas pessoais…</div>';
   try{
@@ -983,11 +1003,10 @@ async function renderStats(refresh=false){
       </div></section>`;
     $("view").innerHTML=html;
     $("stats-refresh")?.addEventListener("click",()=>renderStats(true));
-  }catch(e){$("view").innerHTML=`<div class="msg err">Não consegui calcular as estatísticas (${esc(e.code||e.message)}). Confira se você está conectado à conta proprietária e se as regras permitem a leitura dos seus dados.</div>`;}
+  }catch(e){$("view").innerHTML=`<div class="msg err">Não consegui calcular as estatísticas (${esc(e.code||e.message)}). Confira sua conexão e se as regras do Firestore permitem leitura pública.</div>`;}
   finally{statsLoading=false;}
 }
 async function renderRanking(){
-  if(!fbUser){$("view").innerHTML='<div class="msg">Entre com a conta proprietária para consultar seu ranking musical.</div>';return;}
   if(rankingLoading)return;rankingLoading=true;
   $("view").innerHTML='<div class="msg">Montando seu ranking musical…</div>';
   try{
@@ -1023,7 +1042,7 @@ async function renderRanking(){
     $("ranking-type").addEventListener('change',update);$("ranking-search").addEventListener('input',update);
     $("ranking-refresh").addEventListener('click',async()=>{await hubFB.getAllAnimeNotes({refresh:true});await cacheDelete('songScores');rankingLoading=false;await renderRanking();});
     $("ranking-results").addEventListener('click',e=>{const b=e.target.closest('[data-ranking-anime]');if(b)openAnime(Number(b.dataset.rankingAnime));});
-  }catch(e){$("view").innerHTML=`<div class="msg err">Não consegui montar o ranking (${esc(e.code||e.message)}). Confira sua conexão e as permissões de leitura.</div>`;}
+  }catch(e){$("view").innerHTML=`<div class="msg err">Não consegui montar o ranking (${esc(e.code||e.message)}). Confira sua conexão e se as regras do Firestore permitem leitura pública.</div>`;}
   finally{rankingLoading=false;}
 }
 function render(){
@@ -1087,9 +1106,8 @@ function updateMe(){
   $("login").textContent=fbUser?"Sair":"Entrar com Google";
   $("export-data").classList.toggle("hidden",!fbUser);
   $("import-data").classList.toggle("hidden",!fbUser);
-  $("stats-tab").classList.toggle("hidden",!fbUser);
-  $("ranking-tab").classList.toggle("hidden",!fbUser);
-  if(!fbUser&&(tab==="stats"||tab==="ranking")){tab="now";document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",String(x.dataset.tab==="now")));if(animes.length)render();}
+  // Estatísticas e Ranking musical são públicos; somente os controles de edição
+  // continuam condicionados à autenticação do proprietário.
   if(!fbUser)$("sync-status").textContent="Catálogo público via AniList; entre com a conta proprietária para editar seus dados.";
 }
 window.addEventListener("fb-user",e=>{fbUser=e.detail;updateMe();load({sync:false})});
@@ -1112,6 +1130,15 @@ $("login").addEventListener("click",()=>{
   (fbUser?hubFB.logout():hubFB.login()).catch(err=>alert("Não foi possível entrar: "+err.code));
 });
 document.addEventListener("click",async e=>{
+  const modeButton=e.target.closest("[data-dialog-mode]");
+  if(modeButton){
+    const dialog=$("dlg");
+    const expanded=dialog.classList.toggle("fullscreen");
+    modeButton.textContent=expanded?"↙":"⛶";
+    modeButton.setAttribute("aria-label",expanded?"Voltar à janela compacta":"Expandir para tela cheia");
+    modeButton.title=expanded?"Voltar à janela compacta":"Expandir para tela cheia";
+    return;
+  }
   const detailTab=e.target.closest("[data-detail-tab]");
   if(detailTab){const name=detailTab.dataset.detailTab;
     document.querySelectorAll("[data-detail-tab]").forEach(b=>b.setAttribute("aria-selected",String(b===detailTab)));
@@ -1161,6 +1188,9 @@ document.addEventListener("click",async e=>{
     render();$("sub").scrollIntoView({behavior:"smooth"});return}
 const b=e.target.closest("[data-id]");if(b&&!$("dlg").contains(b))openAnime(+b.dataset.id);
   const c=e.target.closest("[data-copy]");if(c){navigator.clipboard?.writeText(c.dataset.copy);c.textContent="Copiado"}});
+$("dlg").addEventListener("close",()=>{
+  $("dlg").classList.remove("fullscreen");
+});
 $("load").addEventListener("click",()=>load({sync:true}));
 $("export-data").addEventListener("click",async()=>{
   const button=$("export-data");button.disabled=true;button.textContent="Preparando backup…";
@@ -1306,15 +1336,16 @@ window.hubFB={
     const key=noteCacheKey(animeId),old=(await cacheGet(key))?.data||{};
     await cacheSet(key,{...old,animeId:Number(animeId),themeCatalog:catalog});
   },
+  // Leitura pública das informações exibidas nas abas Estatísticas e Ranking.
+  // A identidade do proprietário é fixa; as regras do Firestore permitem leitura,
+  // enquanto todas as operações de escrita continuam exigindo autenticação do dono.
   getAllAnimeNotes:async({refresh=false}={})=>{
-    if(!auth.currentUser||!isOwner())throw new Error("Faça login com a conta proprietária para consultar suas anotações.");
     if(refresh)await cacheDelete("stats:animeNotes");
-    return freshOrCached("stats:animeNotes",async()=>{const snap=await getDocs(collection(db,"users",auth.currentUser.uid,"animeNotes"));const out={};snap.forEach(d=>out[d.id]=d.data());return out;});
+    return freshOrCached("stats:animeNotes",async()=>{const snap=await getDocs(collection(db,"users",OWNER_UID,"animeNotes"));const out={};snap.forEach(d=>out[d.id]=d.data());return out;});
   },
   getAllEpisodeLogs:async({refresh=false}={})=>{
-    if(!auth.currentUser||!isOwner())throw new Error("Faça login com a conta proprietária para consultar o diário.");
     if(refresh)await cacheDelete("stats:episodeLogs");
-    return freshOrCached("stats:episodeLogs",async()=>{const snap=await getDocs(collection(db,"users",auth.currentUser.uid,"episodeLogs"));return snap.docs.map(d=>({id:d.id,...d.data()}));});
+    return freshOrCached("stats:episodeLogs",async()=>{const snap=await getDocs(collection(db,"users",OWNER_UID,"episodeLogs"));return snap.docs.map(d=>({id:d.id,...d.data()}));});
   },
   exportData:async()=>{
     if(!auth.currentUser)throw new Error("Faça login para exportar seus dados.");
