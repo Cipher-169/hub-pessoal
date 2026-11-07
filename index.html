@@ -365,6 +365,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 .diary-actions button:hover{border-color:var(--sun);color:var(--text)}
 .diary-status{min-height:1.4em;color:var(--muted);font-size:.82rem}
 .experience-form{display:grid;gap:14px;padding:16px;border:1px solid var(--line);border-radius:13px;background:rgba(17,24,39,.55)}
+.rating-history{border:1px solid var(--line);border-radius:10px;padding:12px;background:rgba(10,13,24,.35)}.rating-history h3{font:600 1rem var(--serif);margin:0 0 8px}.rating-history ol{list-style:none;margin:0;padding:0;max-height:260px;overflow:auto}.rating-history li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 2px;border-bottom:1px solid var(--line)}.rating-history li:last-child{border-bottom:0}.rating-history li span{color:var(--muted);font-size:.78rem;text-align:right}.rating-history .platform-hint{margin-bottom:0}
 .experience-form label{display:block;color:var(--muted);font-size:.82rem;margin:0 0 6px}
 .experience-form select,.experience-form input,.experience-form textarea,.theme-comment{width:100%;background:#0c1220;border:1px solid var(--line);border-radius:9px;padding:9px 11px;color:var(--text);font:inherit}
 .platform-picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:9px;margin-top:8px}
@@ -432,7 +433,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 <script>
 /* =====================================================================
    CONTROLE DE VERSÃO DO PROJETO — LEIA ANTES DE MODIFICAR ESTE ARQUIVO
-   Versão atual: 9
+   Versão atual: 11
    REGRA OBRIGATÓRIA PARA QUALQUER IA OU PESSOA QUE EDITAR O PROJETO:
    - Sempre que fizer qualquer modificação no código, incremente HUB_VERSION
      em exatamente 1 (ex.: 4 -> 5), mesmo que seja uma correção pequena.
@@ -443,7 +444,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
      anterior. Se receber um arquivo com versão menor, avise o usuário.
    - Antes de editar, procure HUB_VERSION e confira a versão recebida.
    ===================================================================== */
-const HUB_VERSION = 10;
+const HUB_VERSION = 11;
 window.HUB_VERSION = HUB_VERSION;
 document.getElementById("project-version").textContent = `v${HUB_VERSION}`;
 
@@ -666,8 +667,11 @@ async function openAnime(id){
   const a=byId(id),d=$("dlg");activeDiaryAnime=id;window.activeDiaryAnime=id;
   let note={};try{note=await hubFB.getAnimeNote(id)}catch(e){}
   
-  // Selo visual da nota provisória para o cabeçalho
-  const provBadge = note?.provisionalTier ? `<span class="tier" style="--c:var(--gold)">${esc(note.provisionalTier)} <small>Provisória</small></span>` : '';
+  // Selo visual da nota provisória para o cabeçalho (compatível com registros antigos).
+  const headerProvisionalScore = note?.provisionalScore;
+  const provBadge = headerProvisionalScore !== null && headerProvisionalScore !== undefined && Number.isFinite(Number(headerProvisionalScore))
+    ? `<span class="tier provisional-rating-badge" style="--c:var(--gold)">${esc(headerProvisionalScore)} <small>Provisória</small></span>`
+    : (note?.provisionalTier ? `<span class="tier provisional-rating-badge" style="--c:var(--gold)">${esc(note.provisionalTier)} <small>Provisória antiga</small></span>` : '');
 
   d.innerHTML=`<div class="dh" ${bg(a?.banner||a?.cover)}><button class="dx" onclick="dlg.close()">Fechar</button><h2>${esc(a?.title||"Anime "+id)}</h2>
    <div class="meta">${a?when(a):""} ${a?.score?badge(a.score):""} ${provBadge} · <a href="${a?.url||"https://anilist.co/anime/"+id}" target="_blank" rel="noopener">AniList</a></div>
@@ -745,32 +749,40 @@ async function loadExperience(id){
     const data=await hubFB.getAnimeNote(id);if(activeDiaryAnime!==id||!$("dlg").open)return;
     const platforms=Array.isArray(data.platforms)?data.platforms:[];
     const languageLabel=({sub:"Legendado",dub:"Dublado",other:"Outro"})[data.language]||"Não informado";
-    const currentTier=data.provisionalTier||"";
+    const currentScore = data.provisionalScore !== null && data.provisionalScore !== undefined && Number.isFinite(Number(data.provisionalScore))
+      ? String(data.provisionalScore) : "";
+    const legacyTier = data.provisionalTier || "";
+    const ratingHistory = Array.isArray(data.provisionalRatingHistory) ? data.provisionalRatingHistory : [];
+    const historyDate = value => {
+      const date = value ? new Date(value) : null;
+      return date && !Number.isNaN(date.getTime())
+        ? date.toLocaleString("pt-BR", {dateStyle:"short", timeStyle:"short"})
+        : "Data não disponível";
+    };
+    const historyHtml = ratingHistory.length
+      ? `<div class="rating-history"><h3>Histórico da nota provisória</h3><ol>${ratingHistory.map(entry=>`<li><strong>${entry.score===null||entry.score===undefined?"Nota removida":`${esc(entry.score)}/100`}</strong><span>${esc(historyDate(entry.changedAt))}</span></li>`).join("")}</ol><p class="platform-hint">Cada registro representa uma alteração real da nota. O histórico é preservado mesmo quando você terminar o anime.</p></div>`
+      : '<p class="platform-hint">As alterações da nota serão registradas aqui com data e horário.</p>';
 
     if(!fbUser){
-      const hasData=!!(data.language||platforms.length||data.otherPlatform||data.viewingNotes||currentTier);
+      const hasData=!!(data.language||platforms.length||data.otherPlatform||data.viewingNotes||currentScore||legacyTier);
       root.className="";
       root.innerHTML=hasData?`<div class="experience-public">
-       <p><span class="meta">Nota Provisória</span><br><strong>${esc(currentTier||"Não informada")}</strong></p>
+       <p><span class="meta">Nota Provisória</span><br><strong>${esc(currentScore!==""?`${currentScore}/100`:legacyTier||"Não informada")}</strong></p>
        <p><span class="meta">Idioma</span><br><strong>${esc(languageLabel)}</strong></p>
        <p><span class="meta">Plataforma(s)</span><br><strong>${esc([...platforms,...(data.otherPlatform?[data.otherPlatform]:[])].join(", ")||"Não informado")}</strong></p>
        <p><span class="meta">Outras informações</span></p><p style="white-space:pre-wrap">${esc(data.viewingNotes||"Não informado")}</p></div>`:'<div class="msg">Ainda não há informações públicas sobre como assisti a este anime.</div>';
       return;
     }
 
-    const tierOptions=["95+", "90+", "-90+", "85+", "80+", "-80+", "75+", "70+", "-70"];
-
     root.className="";
-    root.innerHTML=`<p class="diary-intro">Informações opcionais e notas provisórias guardadas separadamente dos dados do AniList.</p>
+    root.innerHTML=`<p class="diary-intro">A nota provisória é independente da nota definitiva do AniList. Você pode alterá-la durante a experiência; cada mudança real fica registrada no histórico.</p>
       <form class="experience-form" id="experience-form">
        <div>
-         <label for="provisional-tier">Nota Provisória / Categoria</label>
-         <select id="provisional-tier">
-           <option value="">Sem nota provisória</option>
-           ${tierOptions.map(t=>`<option value="${t}" ${currentTier===t?"selected":""}>${t}</option>`).join("")}
-         </select>
-         <p class="platform-hint">Escolhe a faixa de nota que usas habitualmente (ex: 95+, 90+, etc.).</p>
+         <label for="provisional-score">Nota provisória (0 a 100)</label>
+         <input id="provisional-score" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="Ex.: 85" value="${esc(currentScore)}">
+         <p class="platform-hint">Essa nota não altera sua avaliação no AniList. Deixe em branco se ainda não quiser avaliar.${legacyTier?` Registro antigo encontrado (${esc(legacyTier)}); ao salvar uma nota numérica, ele será substituído.`:""}</p>
        </div>
+       ${historyHtml}
        <div><label for="watch-language">Idioma</label><select id="watch-language"><option value="">Não informado</option><option value="sub" ${data.language==="sub"?"selected":""}>Legendado</option><option value="dub" ${data.language==="dub"?"selected":""}>Dublado</option><option value="other" ${data.language==="other"?"selected":""}>Outro</option></select></div>
        <div><label>Plataforma(s) em que assistiu</label><div class="platform-picker" id="watch-platforms">
         ${["Crunchyroll","Netflix","Prime Video","Disney+","Max","YouTube","Outra"].map(platform=>`<label class="platform-option"><input type="checkbox" name="watch-platform" value="${platform}" ${platforms.includes(platform)?"checked":""}><span>${platform}</span></label>`).join("")}
@@ -783,16 +795,29 @@ async function loadExperience(id){
     $("experience-form").addEventListener("submit",async ev=>{
       ev.preventDefault();const btn=ev.currentTarget.querySelector('button[type="submit"]'),status=$("experience-status");btn.disabled=true;status.textContent="Salvando…";
       const selectedPlatforms=[...$("watch-platforms").querySelectorAll("input[name=\"watch-platform\"]:checked")].map(o=>o.value);
-      const provisionalTier=$("provisional-tier").value;
+      const rawProvisionalScore=$("provisional-score").value.trim();
+      const provisionalScore=rawProvisionalScore===""?null:Number(rawProvisionalScore);
+      if(rawProvisionalScore!==""&&(!Number.isInteger(provisionalScore)||provisionalScore<0||provisionalScore>100)){
+        status.textContent="Informe uma nota inteira entre 0 e 100.";btn.disabled=false;return;
+      }
       try{
         await hubFB.saveAnimeNote(id,{
-          provisionalTier,
+          provisionalScore,
           language:$("watch-language").value,
           platforms:selectedPlatforms,
           otherPlatform:$("watch-platform-other").value.trim(),
           viewingNotes:$("watch-notes").value.trim()
         });
         status.textContent="Salvo com sucesso!";
+        // Atualiza o selo do cabeçalho sem nova leitura do Firestore.
+        const badgeNode=$("dlg").querySelector(".dh .meta");
+        if(badgeNode){
+          const oldBadge=badgeNode.querySelector(".provisional-rating-badge");
+          if(oldBadge)oldBadge.remove();
+          if(provisionalScore!==null){const scoreBadge=document.createElement("span");scoreBadge.className="tier provisional-rating-badge";scoreBadge.style.setProperty("--c","var(--gold)");scoreBadge.innerHTML=`${esc(provisionalScore)} <small>Provisória</small>`;badgeNode.insertBefore(scoreBadge,badgeNode.querySelector("a")||null);}
+        }
+        // Recarrega o formulário a partir do cache atualizado para exibir o histórico recém-gravado.
+        await loadExperience(id);
       }
       catch(err){status.textContent="Não foi possível salvar: "+(err.code||err.message)}finally{btn.disabled=false}
     });
@@ -855,6 +880,28 @@ async function renderStats(refresh=false){
       hubFB.getAllAnimeNotes({refresh}),hubFB.getAllEpisodeLogs({refresh}),hubFB.getSongScores()
     ]);
     const noteRows=Object.entries(notes||{}),noteValues=noteRows.map(([,v])=>v||{}),totalNotes=noteRows.length;
+    const currentProvisionalRatings=noteRows.map(([id,n])=>({id,score:n?.provisionalScore})).filter(x=>x.score!==null&&x.score!==undefined&&Number.isFinite(Number(x.score)));
+    const provisionalHistory=[];
+    noteRows.forEach(([id,n])=>{
+      (Array.isArray(n?.provisionalRatingHistory)?n.provisionalRatingHistory:[]).forEach(entry=>{
+        const time=Date.parse(entry?.changedAt||"");
+        provisionalHistory.push({id,anime:byId(Number(id))?.title||`Anime ${id}`,score:entry?.score??null,time,changedAt:entry?.changedAt||""});
+      });
+    });
+    provisionalHistory.sort((a,b)=>(a.time||0)-(b.time||0));
+    const provisionalMonthCounts=new Map();
+    provisionalHistory.forEach(entry=>{if(Number.isFinite(entry.time)){const d=new Date(entry.time),key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;provisionalMonthCounts.set(key,(provisionalMonthCounts.get(key)||0)+1);}});
+    const provisionalMonthNames=new Intl.DateTimeFormat("pt-BR",{month:"short",year:"numeric"});
+    const provisionalMonthEntries=[...provisionalMonthCounts.entries()].sort((a,b)=>a[0].localeCompare(b[0])).slice(-12).map(([key,count])=>{const [year,month]=key.split("-").map(Number);return [provisionalMonthNames.format(new Date(year,month-1,1)),count];});
+    const provisionalRecent=[...provisionalHistory].sort((a,b)=>(b.time||0)-(a.time||0)).slice(0,8).map(entry=>[
+      `${entry.anime} · ${entry.score===null?"nota removida":`${entry.score}/100`}`,
+      Number.isFinite(entry.time)?new Date(entry.time).toLocaleDateString("pt-BR"):"Data indisponível"
+    ]);
+    let provisionalUps=0,provisionalDowns=0;
+    const historyByAnime=new Map();
+    provisionalHistory.forEach(entry=>{if(!historyByAnime.has(entry.id))historyByAnime.set(entry.id,[]);historyByAnime.get(entry.id).push(entry);});
+    historyByAnime.forEach(entries=>{let previous=null;entries.forEach(entry=>{if(entry.score===null||!Number.isFinite(Number(entry.score))){previous=null;return;}const score=Number(entry.score);if(previous!==null){if(score>previous)provisionalUps++;else if(score<previous)provisionalDowns++;}previous=score;});});
+    const provisionalAverage=currentProvisionalRatings.length?(currentProvisionalRatings.reduce((sum,x)=>sum+Number(x.score),0)/currentProvisionalRatings.length).toFixed(1).replace(".",","):"—";
     const languages={dub:0,sub:0,other:0,unknown:0};
     const platformCounts=new Map();let noPlatform=0,withPlatform=0,withViewingNotes=0,withThemeComments=0,totalThemeComments=0;
     noteValues.forEach(n=>{
@@ -904,6 +951,15 @@ async function renderStats(refresh=false){
        <article class="stat-card"><small>Músicas avaliadas</small><strong>${statNum(scoreTotal)}</strong><span>${songStats.OP.length} OPs · ${songStats.ED.length} EDs</span></article>
        <article class="stat-card"><small>Comentários de OP/ED</small><strong>${statNum(totalThemeComments)}</strong><span>Em ${statNum(withThemeComments)} anime(s)</span></article>
       </div>
+      <section class="stats-section"><h2>Evolução das notas provisórias</h2><div class="stats-grid">
+       <article class="stat-card"><small>Animes com nota provisória</small><strong>${statNum(currentProvisionalRatings.length)}</strong><span>Notas numéricas atuais</span></article>
+       <article class="stat-card"><small>Média das notas provisórias</small><strong>${provisionalAverage}</strong><span>Escala de 0 a 100</span></article>
+       <article class="stat-card"><small>Alterações registradas</small><strong>${statNum(provisionalHistory.length)}</strong><span>Inclui remoções de nota</span></article>
+       <article class="stat-card"><small>Variações</small><strong>+${statNum(provisionalUps)} / −${statNum(provisionalDowns)}</strong><span>Aumentos / reduções entre notas registradas</span></article>
+      </div><div class="stats-columns">
+       <div class="stats-panel"><h3>Alterações por mês</h3>${statBars(provisionalMonthEntries,provisionalHistory.length)}<p class="stats-note">Exibindo até os 12 meses mais recentes com alterações.</p></div>
+       <div class="stats-panel"><h3>Alterações recentes</h3>${statList(provisionalRecent,"Ainda não há alterações de notas provisórias.")}</div>
+      </div><p class="stats-note">O histórico registra somente quando a nota muda. A nota provisória permanece separada da avaliação definitiva do AniList.</p></section>
       <section class="stats-section"><h2>Como você assiste</h2><div class="stats-columns">
        <div class="stats-panel"><h3>Idioma de consumo</h3>${statBars([["Legendado",languages.sub],["Dublado",languages.dub],["Outro",languages.other],["Não informado",languages.unknown]],totalNotes)}<p class="stats-note">Base: ${totalNotes} anime(s) com documento de dados pessoais.</p></div>
        <div class="stats-panel"><h3>Plataformas</h3>${statBars(platforms,totalNotes)}${noPlatform?`<p class="stats-note">Sem plataforma informada: ${noPlatform} anime(s).</p>`:""}<p class="stats-note">Um anime pode aparecer em mais de uma plataforma; por isso, a soma pode superar o total de animes.</p></div>
@@ -1144,7 +1200,7 @@ $("import-file").addEventListener("change",async e=>{
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 import {getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
-import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,onSnapshot,doc,setDoc,deleteDoc,deleteField,serverTimestamp,addDoc,getDocs,getDoc,getDocFromServer,getDocsFromCache,getDocsFromServer,getDocFromCache,query,where,updateDoc,writeBatch} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
+import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,onSnapshot,doc,setDoc,deleteDoc,deleteField,arrayUnion,serverTimestamp,addDoc,getDocs,getDoc,getDocFromServer,getDocsFromCache,getDocsFromServer,getDocFromCache,query,where,updateDoc,writeBatch} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
 
 const app=initializeApp({
   apiKey:"AIzaSyCgHMZV_wIFOV4QuJi3bBRbu_iOXSJ1ahY",
@@ -1340,7 +1396,29 @@ window.hubFB={
     }
     return freshOrCached(key,async()=>{const snap=await getDoc(notePath(animeId));return snap.exists()?snap.data():{}});
   },
-  saveAnimeNote:async(animeId,data)=>{requireOwner();await setDoc(notePath(animeId),{animeId:Number(animeId),...data,updatedAt:serverTimestamp()},{merge:true});const old=(await cacheGet(noteCacheKey(animeId)))?.data||{};await cacheSet(noteCacheKey(animeId),{...old,...data});await cacheDelete("stats:animeNotes");},
+  saveAnimeNote:async(animeId,data)=>{
+    requireOwner();
+    const old=(await cacheGet(noteCacheKey(animeId)))?.data||{};
+    const payload={animeId:Number(animeId),...data,updatedAt:serverTimestamp()};
+    let updatedCache={...old,...data};
+    if(Object.prototype.hasOwnProperty.call(data,"provisionalScore")){
+      const nextScore=data.provisionalScore===null||data.provisionalScore===""?null:Number(data.provisionalScore);
+      const previousScore=old.provisionalScore===null||old.provisionalScore===undefined?null:Number(old.provisionalScore);
+      payload.provisionalScore=nextScore;
+      // Remove a possible legacy category field when migrating to the numeric model.
+      payload.provisionalTier=deleteField();
+      delete updatedCache.provisionalTier;
+      if(nextScore!==previousScore){
+        const historyEntry={score:nextScore,changedAt:new Date().toISOString()};
+        payload.provisionalRatingHistory=arrayUnion(historyEntry);
+        updatedCache.provisionalRatingHistory=[...(Array.isArray(old.provisionalRatingHistory)?old.provisionalRatingHistory:[]),historyEntry];
+      }
+      updatedCache.provisionalScore=nextScore;
+    }
+    await setDoc(notePath(animeId),payload,{merge:true});
+    await cacheSet(noteCacheKey(animeId),updatedCache);
+    await cacheDelete("stats:animeNotes");
+  },
   saveThemeComment:async(animeId,slug,comment)=>{requireOwner();await setDoc(notePath(animeId),{animeId:Number(animeId),themeComments:{[slug]:comment},updatedAt:serverTimestamp()},{merge:true});const old=(await cacheGet(noteCacheKey(animeId)))?.data||{};await cacheSet(noteCacheKey(animeId),{...old,themeComments:{...(old.themeComments||{}),[slug]:comment}});await cacheDelete("stats:animeNotes");},
   associateProvisionalTheme:async(animeId,kind,targetSlug)=>{
     requireOwner();if(!["OP","ED"].includes(kind))throw new Error("Tipo de música inválido.");
