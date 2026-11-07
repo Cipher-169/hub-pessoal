@@ -1359,7 +1359,6 @@ const app=initializeApp({
   appId:"1:335710840559:web:1d99e078383a9819a99d1a"
 });
 const auth=getAuth(app);
-window.hubFirebaseAuth = auth;
 const OWNER_UID=window.HUB_OWNER_UID;
 /* O cache persistente do Firestore usa IndexedDB; este cache de aplicação acrescenta TTL por tipo de dado. */
 const db=initializeFirestore(app,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
