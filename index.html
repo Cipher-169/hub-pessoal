@@ -454,7 +454,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 <script>
 /* =====================================================================
    CONTROLE DE VERSÃO DO PROJETO — LEIA ANTES DE MODIFICAR ESTE ARQUIVO
-   Versão atual: 13
+   Versão atual: 14
    REGRA OBRIGATÓRIA PARA QUALQUER IA OU PESSOA QUE EDITAR O PROJETO:
    - Sempre que fizer qualquer modificação no código, incremente HUB_VERSION
      em exatamente 1 (ex.: 4 -> 5), mesmo que seja uma correção pequena.
@@ -465,7 +465,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
      anterior. Se receber um arquivo com versão menor, avise o usuário.
    - Antes de editar, procure HUB_VERSION e confira a versão recebida.
    ===================================================================== */
-const HUB_VERSION = 13;
+const HUB_VERSION = 14;
 window.HUB_VERSION = HUB_VERSION;
 document.getElementById("project-version").textContent = `v${HUB_VERSION}`;
 
@@ -496,6 +496,23 @@ const bg=u=>u?`style="background-image:url('${u}')"`:"";
 
 let animes=[],tab="now",fbUser=null,fbErr=null,loadingCatalog=false,statsLoading=false,rankingLoading=false;
 const byId=id=>animes.find(a=>a.id===id);
+let initialAnimeUrlHandled=false;
+const getAnimeUrlId=()=>{
+  const value=new URLSearchParams(location.search).get("anime");
+  return value&&/^\d+$/.test(value)&&Number(value)>0?Number(value):null;
+};
+function updateAnimeUrl(id,{method="replaceState",state={}}={}){
+  const url=new URL(location.href);
+  if(id==null)url.searchParams.delete("anime");else url.searchParams.set("anime",String(id));
+  history[method]({...history.state,...state},"",url);
+}
+function maybeOpenInitialAnime(){
+  if(initialAnimeUrlHandled||!animes.length)return;
+  const id=getAnimeUrlId();if(id==null)return;
+  initialAnimeUrlHandled=true;
+  updateAnimeUrl(id,{state:{hubAnimeId:id,hubAnimeFullscreen:true,hubAnimeDirect:true,hubAnimeFromCompact:false}});
+  openAnime(id,{fullscreen:true,fromUrl:true});
+}
 const themeCache=new Map();
 const PROVISIONAL_THEME_SLUGS={OP:"provisional_op",ED:"provisional_ed"};
 const themeTypeFromSlug=slug=>{const value=String(slug||"");if(value===PROVISIONAL_THEME_SLUGS.OP)return "OP";if(value===PROVISIONAL_THEME_SLUGS.ED)return "ED";return value.toUpperCase().match(/^(OP|ED)/)?.[1]||""};
@@ -684,8 +701,11 @@ function renderThemeList(id,th,note,offline=false){
   root.innerHTML=intro+cards.join("");
 }
 
-async function openAnime(id){
-  const a=byId(id),d=$("dlg");activeDiaryAnime=id;window.activeDiaryAnime=id;
+async function openAnime(id,{fullscreen=false,fromUrl=false}={}){
+  const a=byId(id),d=$("dlg"),wasOpen=d.open,wasFullscreen=d.classList.contains("fullscreen");activeDiaryAnime=id;window.activeDiaryAnime=id;
+  if(!wasOpen&&!fromUrl){
+    updateAnimeUrl(null,{state:{hubCompactAnime:id,hubAnimeId:null,hubAnimeFullscreen:false,hubAnimeDirect:false,hubAnimeFromCompact:false}});
+  }
   let note={};try{note=await hubFB.getAnimeNote(id)}catch(e){}
   
   // Selo visual da nota provisória para o cabeçalho (compatível com registros antigos).
@@ -701,7 +721,15 @@ async function openAnime(id){
    <section id="detail-themes"><div id="themes" class="msg">Carregando músicas e comentários salvos…</div></section>
    <section id="detail-experience" class="hidden"><div id="experience-content" class="msg">Carregando…</div></section>
    <section id="detail-diary" class="hidden"><div id="diary-content" class="msg">Carregando diário…</div></section></div>`;
-  d.showModal();
+  if(!d.open)d.showModal();
+  if(fullscreen||wasFullscreen)d.classList.add("fullscreen");else d.classList.remove("fullscreen");
+  const modeControl=d.querySelector("[data-dialog-mode]");
+  if(modeControl){
+    const expanded=d.classList.contains("fullscreen");
+    modeControl.textContent=expanded?"↙":"⛶";
+    modeControl.setAttribute("aria-label",expanded?"Voltar à janela compacta":"Expandir para tela cheia");
+    modeControl.title=expanded?"Voltar à janela compacta":"Expandir para tela cheia";
+  }
   let apiAvailable=false;
   try{
     const th=await fetchThemes(id);apiAvailable=true;
@@ -1058,6 +1086,7 @@ function renderCatalog(items,user,sourceLabel){
   $("year").innerHTML='<option value="">Todos os anos</option>'+ys.map(y=>`<option>${y}</option>`).join("");
   $("sub").textContent=`${sourceLabel} · ${animes.length} animes${fbUser?" · catálogo pessoal":""}.`;
   renderHero();render();
+  maybeOpenInitialAnime();
 }
 const SYNC_INTERVAL_MS=24*60*60*1000;
 function formatSyncTime(value){
@@ -1132,8 +1161,15 @@ $("login").addEventListener("click",()=>{
 document.addEventListener("click",async e=>{
   const modeButton=e.target.closest("[data-dialog-mode]");
   if(modeButton){
-    const dialog=$("dlg");
-    const expanded=dialog.classList.toggle("fullscreen");
+    const dialog=$("dlg"),expanded=!dialog.classList.contains("fullscreen"),id=Number(window.activeDiaryAnime);
+    if(expanded){
+      dialog.classList.add("fullscreen");
+      updateAnimeUrl(id,{method:"pushState",state:{hubAnimeId:id,hubAnimeFullscreen:true,hubAnimeDirect:false,hubAnimeFromCompact:true}});
+    }else if(getAnimeUrlId()===id){
+      if(history.state?.hubAnimeFromCompact&&history.state?.hubAnimeFullscreen){history.back();return;}
+      updateAnimeUrl(null,{state:{hubAnimeId:null,hubAnimeFullscreen:false,hubAnimeDirect:false,hubAnimeFromCompact:false,hubCompactAnime:id}});
+      dialog.classList.remove("fullscreen");
+    }else dialog.classList.remove("fullscreen");
     modeButton.textContent=expanded?"↙":"⛶";
     modeButton.setAttribute("aria-label",expanded?"Voltar à janela compacta":"Expandir para tela cheia");
     modeButton.title=expanded?"Voltar à janela compacta":"Expandir para tela cheia";
@@ -1189,7 +1225,37 @@ document.addEventListener("click",async e=>{
 const b=e.target.closest("[data-id]");if(b&&!$("dlg").contains(b))openAnime(+b.dataset.id);
   const c=e.target.closest("[data-copy]");if(c){navigator.clipboard?.writeText(c.dataset.copy);c.textContent="Copiado"}});
 $("dlg").addEventListener("close",()=>{
-  $("dlg").classList.remove("fullscreen");
+  const dialog=$("dlg"),id=Number(window.activeDiaryAnime);
+  dialog.classList.remove("fullscreen");
+  if(getAnimeUrlId()===id){
+    if(history.state?.hubAnimeFromCompact&&history.state?.hubAnimeFullscreen){
+      history.back();
+    }else{
+      updateAnimeUrl(null,{state:{hubAnimeId:null,hubAnimeFullscreen:false,hubAnimeDirect:false,hubAnimeFromCompact:false,hubCompactAnime:null}});
+    }
+  }
+  if(history.state?.hubCompactAnime===id)updateAnimeUrl(null,{state:{hubCompactAnime:null}});
+});
+window.addEventListener("popstate",()=>{
+  const id=getAnimeUrlId(),dialog=$("dlg");
+  if(id!==null){
+    if(dialog.open&&Number(window.activeDiaryAnime)===id){
+      dialog.classList.add("fullscreen");
+    }else if(animes.length){
+      openAnime(id,{fullscreen:true,fromUrl:true});
+    }
+    const button=dialog.querySelector("[data-dialog-mode]");
+    if(button){button.textContent="↙";button.setAttribute("aria-label","Voltar à janela compacta");button.title="Voltar à janela compacta";}
+    return;
+  }
+  if(!dialog.open)return;
+  if(history.state?.hubCompactAnime===Number(window.activeDiaryAnime)){
+    dialog.classList.remove("fullscreen");
+    const button=dialog.querySelector("[data-dialog-mode]");
+    if(button){button.textContent="⛶";button.setAttribute("aria-label","Expandir para tela cheia");button.title="Expandir para tela cheia";}
+  }else{
+    dialog.close();
+  }
 });
 $("load").addEventListener("click",()=>load({sync:true}));
 $("export-data").addEventListener("click",async()=>{
