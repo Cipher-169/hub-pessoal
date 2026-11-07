@@ -63,7 +63,12 @@ document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click
   if (animes.length || tab === "stats" || tab === "ranking") render();
 }));
 
-["type", "year", "season", "limit"].forEach(id => document.getElementById(id).addEventListener("change", () => animes.length && render()));
+["type", "year", "season", "limit"].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener("change", () => animes.length && render());
+  }
+});
 
 window.addEventListener("fb-user", e => { fbUser = e.detail; updateMe(); load({ sync: false }); });
 
