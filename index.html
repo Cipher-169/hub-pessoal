@@ -18,6 +18,21 @@ button{cursor:pointer}
 .top{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px clamp(16px,4vw,48px);flex-wrap:wrap}
 .brand{font:600 1.25rem var(--serif)}
 .brand i{color:var(--sun)}
+.anilist-profile-link{
+  display:inline-flex;
+  align-items:center;
+  margin-left:14px;
+  color:var(--muted);
+  font:500 .78rem var(--sans);
+  text-decoration:none;
+  transition:color .2s;
+  vertical-align:middle;
+}
+
+.anilist-profile-link:hover{
+  color:var(--sun);
+  text-decoration:underline;
+}
 .project-version{display:inline-flex;align-items:center;margin-left:9px;padding:3px 9px;border:1px solid #ffffff35;border-radius:999px;color:var(--gold);font:500 .72rem var(--sans);vertical-align:middle;letter-spacing:.03em}
 .who{display:flex;gap:8px}
 .who input,.who button{background:#0a0d18aa;backdrop-filter:blur(8px);border:1px solid #ffffff2a;border-radius:999px;padding:7px 14px}
@@ -472,9 +487,25 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 <body>
 <header class="hero" id="hero">
   <div class="top">
-    <div class="brand">Hub de <i>animes</i><span class="project-version" id="project-version">v—</span></div>
-    <div class="who"><span class="profile-chip" aria-label="Perfil AniList fixo">AniList: <strong>Clpher</strong></span><button id="load" type="button">Sincronizar AniList</button><button id="login" type="button">Entrar com Google</button></div>
+  <div class="brand">
+    Hub de <i>animes</i><span class="project-version" id="project-version">v—</span>
+    <a
+      class="anilist-profile-link"
+      href="https://anilist.co/user/Clpher/"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Abrir meu perfil no AniList em nova aba"
+    >Meu AniList ↗</a>
   </div>
+
+  <div class="who">
+    <span class="profile-chip" aria-label="Perfil AniList fixo">
+      AniList: <strong>Clpher</strong>
+    </span>
+    <button id="load" type="button">Sincronizar AniList</button>
+    <button id="login" type="button">Entrar com Google</button>
+  </div>
+</div>
   <div class="hero-in" id="heroin"><h1>Carregando…</h1></div>
 </header>
 <div class="wrap">
