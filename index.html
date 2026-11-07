@@ -1,1 +1,57 @@
-<script type="module" src="./src/main.js"></script>
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hub de Animes (v9)</title>
+  <link rel="stylesheet" href="./src/style.css"> 
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Cabeçalho e controlos -->
+  <header>
+    <h1>Hub de Animes</h1>
+    <div id="me"></div>
+    <button id="login">Entrar com Google</button>
+    <button id="load">Carregar / Sincronizar</button>
+    <span id="sync-status"></span>
+    <div id="sub"></div>
+  </header>
+
+  <!-- Abas de navegação -->
+  <nav class="tabs">
+    <button data-tab="now" aria-selected="true">Agora</button>
+    <button data-tab="panel">Painel</button>
+    <button data-tab="top">Top</button>
+    <button data-tab="hall">Hall</button>
+    <button id="stats-tab" data-tab="stats" class="hidden">Estatísticas</button>
+    <button id="ranking-tab" data-tab="ranking" class="hidden">Ranking</button>
+  </nav>
+
+  <!-- Filtros -->
+  <div id="filters">
+    <select id="type"><option value="">Tipo</option></select>
+    <select id="year"><option value="">Ano</option></select>
+    <select id="season"><option value="">Temporada</option></select>
+    <select id="limit"><option value="">Limite</option></select>
+  </div>
+
+  <!-- Secção Hero -->
+  <div id="hero">
+    <div id="heroin"></div>
+  </div>
+
+  <!-- Contentor principal onde o site é renderizado -->
+  <main id="view"></main>
+
+  <!-- Modal -->
+  <dialog id="dlg"></dialog>
+
+  <!-- Script principal modular -->
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
