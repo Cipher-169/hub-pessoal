@@ -12,57 +12,111 @@ import { openAnimeModal, loadDiary, loadExperience, getActiveDiaryAnime } from '
 
 let animes = [], tab = "now", fbUser = null, loadingCatalog = false;
 
+// Funções auxiliares seguras para evitar erros de elementos nulos
+function safeText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
+function safeHTML(id, html) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = html;
+}
+
 async function performAniListSync(user) {
-  document.getElementById("sync-status").textContent = "A sincronizar com o AniList…";
+  safeText("sync-status", "A sincronizar com o AniList…");
   const fresh = await fetchList(user);
   await window.hubFB.saveAniListCache(user, fresh);
   renderCatalog(fresh, user);
-  document.getElementById("sync-status").textContent = `Sincronizado · ${fresh.length} animes`;
+  safeText("sync-status", `Sincronizado · ${fresh.length} animes`);
   return fresh;
 }
 
 function renderCatalog(items, user) {
   animes = items;
   setCatalogAnimes(items);
-  const ys = [...new Set(animes.map(a => a.year).filter(Boolean))].sort((a, b) => b - a);
-  document.getElementById("year").innerHTML = '<option value="">Todos os anos</option>' + ys.map(y => `<option>${y}</option>`).join("");
-  document.getElementById("sub").textContent = `${user} · ${animes.length} animes.`;
-  renderHero(document.getElementById("hero"), document.getElementById("heroin"), animes);
+  
+  const yearSelect = document.getElementById("year");
+  if (yearSelect) {
+    const ys = [...new Set(animes.map(a => a.year).filter(Boolean))].sort((a, b) => b - a);
+    yearSelect.innerHTML = '<option value="">Todos os anos</option>' + ys.map(y => `<option>${y}</option>`).join("");
+  }
+  
+  safeText("sub", `${user} · ${animes.length} animes.`);
+  
+  const heroEl = document.getElementById("hero");
+  const heroinEl = document.getElementById("heroin");
+  if (heroEl && heroinEl) {
+    renderHero(heroEl, heroinEl, animes);
+  }
+  
   render();
 }
 
 function render() {
   const viewEl = document.getElementById("view");
-  if (tab === "ranking") { document.getElementById("filters").classList.add("hidden"); document.getElementById("type").classList.add("hidden"); renderRanking(animes, viewEl, fbUser); return; }
-  if (tab === "stats") { document.getElementById("filters").classList.add("hidden"); document.getElementById("type").classList.add("hidden"); renderStats(animes, viewEl, fbUser); return; }
-  document.getElementById("filters").classList.toggle("hidden", tab === "now" || tab === "panel");
-  document.getElementById("type").classList.toggle("hidden", tab !== "hall");
+  if (!viewEl) return;
+
+  const filtersEl = document.getElementById("filters");
+  const typeEl = document.getElementById("type");
+
+  if (tab === "ranking") { 
+    filtersEl?.classList.add("hidden"); 
+    typeEl?.classList.add("hidden"); 
+    renderRanking(animes, viewEl, fbUser); 
+    return; 
+  }
+  
+  if (tab === "stats") { 
+    filtersEl?.classList.add("hidden"); 
+    typeEl?.classList.add("hidden"); 
+    renderStats(animes, viewEl, fbUser); 
+    return; 
+  }
+  
+  filtersEl?.classList.toggle("hidden", tab === "now" || tab === "panel");
+  typeEl?.classList.toggle("hidden", tab !== "hall");
+  
   if (tab === "now") renderNow(animes, viewEl);
   if (tab === "panel") renderPanel(animes, viewEl);
   if (tab === "top") renderTop(animes, viewEl, document.getElementById("year"), document.getElementById("season"), document.getElementById("limit"));
-  if (tab === "hall") renderHall(animes, viewEl, document.getElementById("type"), document.getElementById("year"), document.getElementById("season"), document.getElementById("limit"));
+  if (tab === "hall") renderHall(animes, viewEl, typeEl, document.getElementById("year"), document.getElementById("season"), document.getElementById("limit"));
 }
 
 async function load({ sync = false } = {}) {
-  const user = OWNER_ANILIST_USERNAME; if (loadingCatalog) return;
-  loadingCatalog = true; const button = document.getElementById("load"); button.disabled = true;
+  const user = OWNER_ANILIST_USERNAME; 
+  if (loadingCatalog) return;
+  
+  loadingCatalog = true; 
+  const button = document.getElementById("load"); 
+  if (button) button.disabled = true;
+  
   try {
     if (!sync) {
-      const cached = await window.hubFB.getAniListCache(user).catch(() => null);
-      if (cached?.items?.length) { renderCatalog(cached.items, user); loadingCatalog = false; button.disabled = false; return; }
+      const cached = await window.hubFB?.getAniListCache(user).catch(() => null);
+      if (cached?.items?.length) { 
+        renderCatalog(cached.items, user); 
+        loadingCatalog = false; 
+        if (button) button.disabled = false; 
+        return; 
+      }
     }
     await performAniListSync(user);
   } catch (e) {
-    document.getElementById("view").innerHTML = `<div class="msg err">Erro ao carregar: ${esc(e.message)}</div>`;
-  } finally { loadingCatalog = false; button.disabled = false; }
+    safeHTML("view", `<div class="msg err">Erro ao carregar: ${esc(e.message)}</div>`);
+  } finally { 
+    loadingCatalog = false; 
+    if (button) button.disabled = false; 
+  }
 }
 
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
   tab = b.dataset.tab;
-  document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x === b));
+  document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", String(x === b)));
   if (animes.length || tab === "stats" || tab === "ranking") render();
 }));
 
+// Proteção para os seletores de filtros
 ["type", "year", "season", "limit"].forEach(id => {
   const el = document.getElementById(id);
   if (el) {
@@ -70,19 +124,27 @@ document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click
   }
 });
 
-window.addEventListener("fb-user", e => { fbUser = e.detail; updateMe(); load({ sync: false }); });
+window.addEventListener("fb-user", e => { 
+  fbUser = e.detail; 
+  updateMe(); 
+  load({ sync: false }); 
+});
 
 function updateMe() {
-  document.getElementById("me").innerHTML = fbUser ? `Logado como ${esc(fbUser.name)}` : "";
-  document.getElementById("login").textContent = fbUser ? "Sair" : "Entrar com Google";
+  safeText("me", fbUser ? `Logado como ${esc(fbUser.name)}` : "");
+  safeText("login", fbUser ? "Sair" : "Entrar com Google");
   document.getElementById("stats-tab")?.classList.toggle("hidden", !fbUser);
   document.getElementById("ranking-tab")?.classList.toggle("hidden", !fbUser);
 }
 
-document.getElementById("login").addEventListener("click", () => {
-  if (!window.hubFB) { alert("Firebase não carregado."); return; }
-  (fbUser ? window.hubFB.logout() : window.hubFB.login()).catch(err => alert("Erro: " + err.code));
-});
+// Botão de login blindado
+const loginBtn = document.getElementById("login");
+if (loginBtn) {
+  loginBtn.addEventListener("click", () => {
+    if (!window.hubFB) { alert("Firebase não carregado."); return; }
+    (fbUser ? window.hubFB.logout() : window.hubFB.login()).catch(err => alert("Erro: " + err.code));
+  });
+}
 
 document.addEventListener("click", async e => {
   const detailTab = e.target.closest("[data-detail-tab]");
@@ -94,21 +156,30 @@ document.addEventListener("click", async e => {
     if (name === "experience" && getActiveDiaryAnime() != null) loadExperience(getActiveDiaryAnime(), !!fbUser);
     return;
   }
+  
   const b = e.target.closest("[data-id]");
-  if (b && !document.getElementById("dlg").contains(b)) openAnimeModal(+b.dataset.id, animes, document.getElementById("dlg"), {}, fbUser);
+  const dlg = document.getElementById("dlg");
+  if (b && dlg && !dlg.contains(b)) openAnimeModal(+b.dataset.id, animes, dlg, {}, fbUser);
+  
   const sv = e.target.closest("[data-save]");
   if (sv) {
     const key = sv.dataset.save, v = document.getElementById("sc-" + key)?.value.trim().replace(",", ".");
+    const stEl = document.getElementById("st-" + key);
     try {
-      if (v === "") { await window.hubFB.remove(key); document.getElementById("st-" + key).textContent = "removido"; return; }
+      if (v === "") { await window.hubFB.remove(key); if (stEl) stEl.textContent = "removido"; return; }
       const n = parseFloat(v);
-      if (isNaN(n) || n < 0 || n > 10) { document.getElementById("st-" + key).textContent = "0 a 10"; return; }
+      if (isNaN(n) || n < 0 || n > 10) { if (stEl) stEl.textContent = "0 a 10"; return; }
       await window.hubFB.save(key, n);
-      document.getElementById("st-" + key).textContent = "salvo";
-    } catch (err) { document.getElementById("st-" + key).textContent = "erro"; }
+      if (stEl) stEl.textContent = "salvo";
+    } catch (err) { if (stEl) stEl.textContent = "erro"; }
     return;
   }
 });
 
-document.getElementById("load").addEventListener("click", () => load({ sync: true }));
+// Botão de carregar blindado
+const loadBtn = document.getElementById("load");
+if (loadBtn) {
+  loadBtn.addEventListener("click", () => load({ sync: true }));
+}
+
 load({ sync: false });
