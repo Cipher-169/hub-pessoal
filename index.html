@@ -414,6 +414,21 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 .definitive-rating-meta{color:var(--muted);font-size:.8rem}
 
 @media(max-width:560px){.diary-form{grid-template-columns:1fr}.diary-form textarea,.diary-form .wide-field{grid-column:auto}.diary-entry-head{align-items:flex-start;flex-direction:column}}
+/* ============ CONEXÃO SEGURA COM ANILIST ============ */
+.anilist-connect{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:0 0 18px;padding:13px 16px;border:1px solid var(--line);border-radius:13px;background:linear-gradient(120deg,rgba(18,25,41,.9),rgba(18,25,41,.58))}
+.anilist-connect-info{display:grid;gap:3px;min-width:0}
+.anilist-connect-info strong{font:600 1rem var(--serif);color:var(--text)}
+.anilist-connect-status{color:var(--muted);font-size:.86rem;overflow-wrap:anywhere}
+.anilist-connect-meta{color:var(--muted);font-size:.76rem}
+.anilist-connect-actions{display:flex;gap:8px;flex-wrap:wrap}
+.anilist-connect-actions button{border:1px solid var(--line);border-radius:999px;padding:8px 13px;background:rgba(255,255,255,.04);color:var(--text)}
+.anilist-connect-actions button.primary{background:var(--sun);border-color:transparent;color:#1a0d08;font-weight:650}
+.anilist-connect-actions button:disabled{opacity:.5;cursor:wait}
+.anilist-feedback{flex-basis:100%;min-height:1.2em;margin:0;color:var(--muted);font-size:.8rem}
+.anilist-feedback.error{color:var(--sun)}
+@media(max-width:560px){.anilist-connect{align-items:flex-start}.anilist-connect-actions{width:100%}}
+/* ============ FIM DA CONEXÃO COM ANILIST ============ */
+
 /* ============ SINCRONIZAÇÃO E BACKUP ============ */
 .sync-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 16px}
 .sync-status{color:var(--muted);font-size:.82rem;min-height:1.3em}
@@ -441,6 +456,19 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
     <span class="sync-status" id="sync-status" role="status">Catálogo público via AniList; cache local por até 24 horas.</span>
     <div class="sync-actions"><button id="export-data" type="button" class="hidden">Exportar meus dados (JSON)</button><button id="import-data" type="button" class="hidden">Importar backup (JSON)</button><input id="import-file" type="file" accept=".json,application/json" class="hidden" aria-label="Selecionar backup JSON"></div>
   </div>
+  <section class="anilist-connect" aria-label="Conexão da conta AniList">
+    <div class="anilist-connect-info">
+      <strong>Conexão com AniList</strong>
+      <span class="anilist-connect-status" id="anilist-connection-status" role="status">Aguardando autenticação do Firebase…</span>
+      <span class="anilist-connect-meta" id="anilist-connection-meta"></span>
+    </div>
+    <div class="anilist-connect-actions">
+      <button type="button" class="primary" id="anilist-connect" disabled>Conectar AniList</button>
+      <button type="button" id="anilist-disconnect" class="hidden" disabled>Desconectar</button>
+      <button type="button" id="anilist-retry" class="hidden" disabled>Verificar novamente</button>
+    </div>
+    <p class="anilist-feedback" id="anilist-feedback" role="status" aria-live="polite"></p>
+  </section>
   <p class="meta" id="me"></p>
   <div class="tabs" role="tablist">
     <button role="tab" aria-selected="true" data-tab="now">Agora</button>
@@ -464,7 +492,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 <script>
 /* =====================================================================
    CONTROLE DE VERSÃO DO PROJETO — LEIA ANTES DE MODIFICAR ESTE ARQUIVO
-   Versão atual: 15
+   Versão atual: 16
    REGRA OBRIGATÓRIA PARA QUALQUER IA OU PESSOA QUE EDITAR O PROJETO:
    - Sempre que fizer qualquer modificação no código, incremente HUB_VERSION
      em exatamente 1 (ex.: 4 -> 5), mesmo que seja uma correção pequena.
@@ -475,7 +503,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
      anterior. Se receber um arquivo com versão menor, avise o usuário.
    - Antes de editar, procure HUB_VERSION e confira a versão recebida.
    ===================================================================== */
-const HUB_VERSION = 15;
+const HUB_VERSION = 16;
 window.HUB_VERSION = HUB_VERSION;
 document.getElementById("project-version").textContent = `v${HUB_VERSION}`;
 
@@ -505,6 +533,9 @@ const when=a=>[SEASONS[a.season],a.year].filter(Boolean).join(" ");
 const bg=u=>u?`style="background-image:url('${u}')"`:"";
 
 let animes=[],tab="now",fbUser=null,fbErr=null,loadingCatalog=false,statsLoading=false,rankingLoading=false;
+const ANILIST_CALLBACK_CODES=new Set(["connected","denied","invalid_callback","invalid_state","token_error","verification_error","configuration_error"]);
+const anilistCallback=(()=>{const params=new URLSearchParams(location.search),code=params.get("anilist");return ANILIST_CALLBACK_CODES.has(code)?{code,account:params.get("account")||""}:null})();
+let anilistCallbackHandled=false,anilistStatus={kind:"unauthenticated"},anilistBusy=false;
 const byId=id=>animes.find(a=>a.id===id);
 let initialAnimeUrlHandled=false;
 const getAnimeUrlId=()=>{
@@ -1168,7 +1199,97 @@ function updateMe(){
   // continuam condicionados à autenticação do proprietário.
   if(!fbUser)$("sync-status").textContent="Catálogo público via AniList; entre com a conta proprietária para editar seus dados.";
 }
-window.addEventListener("fb-user",e=>{fbUser=e.detail;updateMe();load({sync:false})});
+function setAniListFeedback(message="",kind=""){
+  const el=$("anilist-feedback");if(!el)return;el.textContent=message;el.classList.toggle("error",kind==="error");
+}
+function updateAniListConnectionUI(){
+  const status=$("anilist-connection-status"),meta=$("anilist-connection-meta"),connect=$("anilist-connect"),disconnect=$("anilist-disconnect"),retry=$("anilist-retry");
+  if(!status||!connect||!disconnect||!retry)return;
+  const state=anilistStatus.kind;
+  status.textContent=({
+    checking:"Verificando conexão com AniList…",
+    unauthenticated:"Entre com a conta Google proprietária para verificar ou conectar o AniList.",
+    disconnected:"Nenhuma conta AniList conectada.",
+    connected:`Conectado como ${anilistStatus.accountName||"conta AniList"}.`,
+    expired:`A conexão de ${anilistStatus.accountName||"sua conta AniList"} está expirada. Reconecte para voltar a utilizá-la.`,
+    error:"Não foi possível verificar a conexão com AniList."
+  })[state]||"Estado da conexão indisponível.";
+  const expiry=anilistStatus.expiresAt;
+  meta.textContent=state==="connected"||state==="expired"?(expiry!==null&&expiry!==undefined?`Expiração informada pelo Worker: ${String(expiry)}`:""):"";
+  connect.textContent=state==="expired"?"Reconectar AniList":"Conectar AniList";
+  connect.classList.toggle("hidden",state==="connected");
+  connect.disabled=!fbUser||anilistBusy||state==="checking";
+  disconnect.classList.toggle("hidden",!fbUser||!(state==="connected"||state==="expired"));
+  disconnect.disabled=!fbUser||anilistBusy;
+  retry.classList.toggle("hidden",!fbUser||state!=="error");
+  retry.disabled=!fbUser||anilistBusy;
+}
+function callbackFeedback(code){
+  const messages={
+    connected:"O AniList retornou ao Hub. Verificando a conexão diretamente no Worker…",
+    denied:"A autorização do AniList foi cancelada ou negada.",
+    invalid_callback:"O Worker informou que o retorno OAuth é inválido.",
+    invalid_state:"O Worker rejeitou o estado OAuth. Tente iniciar a conexão novamente.",
+    token_error:"O Worker não conseguiu concluir a troca do código OAuth por um token.",
+    verification_error:"O Worker não conseguiu verificar a conta AniList autorizada.",
+    configuration_error:"O Worker informou um problema de configuração na integração OAuth."
+  };
+  return messages[code]||"O AniList retornou uma resposta de autenticação.";
+}
+function removeAniListCallbackParams(){
+  const url=new URL(location.href);url.searchParams.delete("anilist");url.searchParams.delete("account");
+  history.replaceState(history.state,"",url);
+}
+async function refreshAniListStatus({silent=false}={}){
+  if(!fbUser||!window.hubFB?.getAniListStatus){
+    anilistStatus={kind:"unauthenticated"};updateAniListConnectionUI();return null;
+  }
+  const uid=fbUser.uid;anilistStatus={kind:"checking"};updateAniListConnectionUI();
+  if(!silent)setAniListFeedback("Consultando o estado da conexão…");
+  try{
+    const result=await window.hubFB.getAniListStatus();
+    if(fbUser?.uid!==uid)return null;
+    if(!result||typeof result.connected!=="boolean")throw new Error("Resposta de status inválida.");
+    if(result.connected){
+      anilistStatus={kind:result.expired?"expired":"connected",accountName:typeof result.accountName==="string"?result.accountName:"",savedAt:result.savedAt||null,expiresAt:result.expiresAt||null};
+    }else anilistStatus={kind:"disconnected"};
+    updateAniListConnectionUI();
+    if(!silent)setAniListFeedback(anilistStatus.kind==="connected"?"Conexão verificada com sucesso.":anilistStatus.kind==="expired"?"A conexão existe, mas o token expirou.":"Nenhuma conta AniList está conectada.");
+    return anilistStatus;
+  }catch(err){
+    if(fbUser?.uid!==uid)return null;
+    console.warn("Falha ao consultar o estado OAuth do AniList",err);
+    anilistStatus={kind:"error"};updateAniListConnectionUI();
+    if(!silent)setAniListFeedback("Não foi possível consultar o Worker. Verifique sua conexão e tente novamente.","error");
+    return anilistStatus;
+  }
+}
+async function handleAniListCallback(){
+  if(!anilistCallback||anilistCallbackHandled)return;
+  anilistCallbackHandled=true;
+  setAniListFeedback(callbackFeedback(anilistCallback.code),anilistCallback.code==="connected"?"":"error");
+  removeAniListCallbackParams();
+  if(!fbUser){
+    anilistStatus={kind:"unauthenticated"};updateAniListConnectionUI();
+    setAniListFeedback("Retorno do AniList recebido, mas não foi possível verificar a conexão. Entre com a conta Google proprietária e tente verificar novamente.","error");
+    return;
+  }
+  const checked=await refreshAniListStatus({silent:true});
+  if(anilistCallback.code==="connected"){
+    if(checked?.kind==="connected")setAniListFeedback(`Conexão confirmada pelo Worker${checked.accountName?` para ${checked.accountName}`:""}.`);
+    else setAniListFeedback("O retorno informou sucesso, mas o Worker não confirmou uma conexão ativa. Use Verificar novamente ou tente conectar outra vez.","error");
+  }
+}
+window.addEventListener("fb-user",async e=>{
+  fbUser=e.detail;updateMe();load({sync:false});
+  if(fbUser){
+    if(anilistCallback&&!anilistCallbackHandled)await handleAniListCallback();
+    else await refreshAniListStatus({silent:true});
+  }else{
+    anilistStatus={kind:"unauthenticated"};updateAniListConnectionUI();
+    if(anilistCallback&&!anilistCallbackHandled)await handleAniListCallback();
+  }
+});
 window.addEventListener("fb-error",e=>{fbErr=e.detail;if(animes.length&&tab==="hall")render()});
 window.addEventListener("fb-scores",e=>{
   Object.keys(SONG_SCORES).forEach(k=>delete SONG_SCORES[k]);Object.assign(SONG_SCORES,e.detail);
@@ -1182,6 +1303,26 @@ document.addEventListener("submit",async e=>{
   try{await hubFB.updateLog(form.dataset.editForm,{episode,watchedAt:dateForgotten?"":watchedAt,comment});await loadDiary(activeDiaryAnime)}
   catch(err){alert("Não foi possível salvar a edição: "+(err.code||err.message));btn.disabled=false;}
 });
+
+$("anilist-connect").addEventListener("click",async()=>{
+  if(!fbUser){setAniListFeedback("Entre com a conta Google proprietária antes de conectar o AniList.","error");return;}
+  if(!window.hubFB?.beginAniListOAuth){setAniListFeedback("A integração ainda está inicializando. Recarregue a página e tente novamente.","error");return;}
+  anilistBusy=true;updateAniListConnectionUI();setAniListFeedback("Preparando autorização segura com AniList…");
+  try{const authorizationUrl=await window.hubFB.beginAniListOAuth();window.location.assign(authorizationUrl);}
+  catch(err){console.warn("Falha ao iniciar OAuth do AniList",err);setAniListFeedback("Não foi possível iniciar a conexão. Verifique sua autenticação e tente novamente.","error");anilistBusy=false;updateAniListConnectionUI();}
+});
+$("anilist-disconnect").addEventListener("click",async()=>{
+  if(!fbUser)return;
+  if(!confirm("Deseja desconectar a conta AniList deste Hub?"))return;
+  anilistBusy=true;updateAniListConnectionUI();setAniListFeedback("Desconectando conta AniList…");
+  try{
+    await window.hubFB.disconnectAniList();
+    anilistStatus={kind:"disconnected"};anilistBusy=false;updateAniListConnectionUI();setAniListFeedback("Conta AniList desconectada com sucesso.");
+  }catch(err){
+    console.warn("Falha ao desconectar AniList",err);anilistBusy=false;updateAniListConnectionUI();setAniListFeedback("Não foi possível desconectar a conta. Verifique sua conexão e tente novamente.","error");
+  }
+});
+$("anilist-retry").addEventListener("click",async()=>{if(!fbUser)return;anilistBusy=true;updateAniListConnectionUI();await refreshAniListStatus();anilistBusy=false;updateAniListConnectionUI()});
 
 $("login").addEventListener("click",()=>{
   if(!window.hubFB){alert("O Firebase ainda não carregou. Confira a internet e recarregue.");return}
@@ -1360,6 +1501,25 @@ const app=initializeApp({
 });
 const auth=getAuth(app);
 const OWNER_UID=window.HUB_OWNER_UID;
+const ANILIST_WORKER_URL="https://hub-animes-api.world-testaocenter790.workers.dev";
+async function anilistWorkerRequest(path,method="GET"){
+  requireOwner();
+  const user=auth.currentUser;
+  if(!user)throw new Error("Autenticação Firebase indisponível.");
+  const idToken=await user.getIdToken();
+  const response=await fetch(`${ANILIST_WORKER_URL}${path}`,{
+    method,
+    headers:{Authorization:`Bearer ${idToken}`,Accept:"application/json"},
+    cache:"no-store",
+    credentials:"omit"
+  });
+  const raw=await response.text();let payload=null;
+  if(raw){try{payload=JSON.parse(raw)}catch(err){payload=null}}
+  if(!response.ok)throw new Error(`Worker HTTP ${response.status}`);
+  if(payload&&payload.ok===false)throw new Error("O Worker recusou a operação.");
+  return payload;
+}
+/* O token AniList permanece exclusivamente no Worker; o frontend usa apenas o ID Token temporário do Firebase. */
 /* O cache persistente do Firestore usa IndexedDB; este cache de aplicação acrescenta TTL por tipo de dado. */
 const db=initializeFirestore(app,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
 const emit=(n,d)=>window.dispatchEvent(new CustomEvent(n,{detail:d}));
@@ -1390,6 +1550,22 @@ async function freshOrCached(key,fetcher){
 }
 
 window.hubFB={
+  getAniListStatus:async()=>{
+    const result=await anilistWorkerRequest("/auth/status","GET");
+    if(!result||typeof result!=="object"||typeof result.connected!=="boolean")throw new Error("Resposta de status inválida.");
+    return result;
+  },
+  beginAniListOAuth:async()=>{
+    const result=await anilistWorkerRequest("/auth/anilist","POST");
+    if(!result||result.ok!==true||typeof result.authorizationUrl!=="string")throw new Error("O Worker não forneceu uma URL de autorização válida.");
+    const target=new URL(result.authorizationUrl);
+    if(target.protocol!=="https:"||!(["anilist.co","www.anilist.co"].includes(target.hostname)))throw new Error("URL de autorização do AniList não permitida.");
+    return target.href;
+  },
+  disconnectAniList:async()=>{
+    await anilistWorkerRequest("/auth/disconnect","POST");
+    return true;
+  },
   login:async()=>{
     if(auth.currentUser&&!isOwner())await signOut(auth);
     const result=await signInWithPopup(auth,new GoogleAuthProvider());
