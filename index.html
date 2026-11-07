@@ -283,12 +283,12 @@ h2{font-size:1.72rem;letter-spacing:-.025em;margin:38px 0 17px}
 .pb i{border-radius:4px}
 .meta{color:#a6b2cd}
 .bar{gap:9px;margin:0 0 24px;padding:12px;border:1px solid var(--line);border-radius:14px;background:rgba(17,24,39,.56)}
-.bar select,.cp,input.sc{
+.bar select, .bar input[type="search"], .cp,input.sc{
   min-height:38px;background:#151d30;border:1px solid rgba(164,178,211,.18);border-radius:9px;
   transition:border-color .2s,background .2s;
 }
 .bar select{padding:8px 13px}
-.bar select:focus,.cp:hover,input.sc:focus{border-color:rgba(255,145,107,.65)}
+.bar select:focus, .bar input[type="search"], .cp:hover,input.sc:focus{border-color:rgba(255,145,107,.65)}
 .podium{gap:clamp(12px,3vw,34px);max-width:900px;margin:8px auto 34px}
 .pod .info b{font-size:.98rem}
 .num{color:var(--gold);font-size:clamp(3.2rem,8vw,5.8rem)}
@@ -390,30 +390,6 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 .sync-actions button:hover{border-color:var(--sun)}
 .sync-actions button:disabled{opacity:.55;cursor:wait}
 /* ============ FIM DO DIÁRIO ============ */
-
-.bar input[type="search"] {
-  flex: 1;
-  min-width: 200px;
-  background: #151d30 !important;
-  border: 1px solid rgba(164,178,211,.18) !important;
-  border-radius: 9px !important;
-  color: #e2e8f0 !important;
-  padding: 8px 14px;
-  font-size: 0.9rem;
-  font-family: inherit;
-  outline: none;
-  transition: border-color .2s, background .2s, box-shadow .2s;
-}
-
-.bar input[type="search"]:focus {
-  border-color: #4f46e5 !important;
-  background: #1a233a !important;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
-}
-
-.bar input[type="search"]::placeholder {
-  color: #64748b;
-}
 
 /* ============ FIM DA REPAGINAÇÃO VISUAL ============ */
 
