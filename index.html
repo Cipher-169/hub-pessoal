@@ -436,6 +436,33 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 .sync-actions button{background:rgba(17,24,39,.8);border:1px solid var(--line);border-radius:999px;padding:7px 13px;color:var(--text)}
 .sync-actions button:hover{border-color:var(--sun)}
 .sync-actions button:disabled{opacity:.55;cursor:wait}
+#import-preview-dialog{width:min(860px,96vw);padding:0}
+.import-preview{padding:clamp(16px,3vw,26px)}
+.import-preview-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:18px}
+.import-preview-head h2{margin:0 0 5px;font:600 1.55rem var(--serif)}
+.import-preview-head p,.import-preview-note{margin:0;color:var(--muted);font-size:.88rem}
+.import-preview-close{flex:none;background:transparent;border:1px solid var(--line);border-radius:999px;padding:6px 12px;color:var(--text)}
+.import-preview-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:18px 0}
+.import-preview-stat{padding:13px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.import-preview-stat strong{display:block;font:600 1.8rem var(--serif);line-height:1.2}
+.import-preview-stat span{font-size:.82rem;color:var(--muted)}
+.import-preview-stat.add strong{color:#83d6a5}.import-preview-stat.attention strong{color:var(--gold)}
+.import-preview-note{padding:12px 14px;border:1px solid rgba(242,196,109,.28);border-radius:10px;background:rgba(242,196,109,.06);margin:14px 0 18px}
+.import-preview-groups{display:grid;gap:9px;max-height:42vh;overflow:auto;padding-right:3px}
+.import-preview-groups details{border:1px solid var(--line);border-radius:10px;background:rgba(19,24,39,.55);padding:10px 13px}
+.import-preview-groups summary{display:flex;justify-content:space-between;gap:12px;margin:0;color:var(--text);font-weight:600}
+.import-preview-group-count{color:var(--muted);font-size:.8rem;font-weight:400}
+.import-preview-items{display:grid;gap:7px;margin-top:12px}
+.import-preview-item{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:8px 0;border-top:1px solid rgba(152,162,189,.13);font-size:.84rem}
+.import-preview-item small{display:block;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+.import-preview-tag{flex:none;border-radius:999px;padding:3px 8px;font-size:.72rem;white-space:nowrap;background:#ffffff12;color:var(--muted)}
+.import-preview-tag.add{color:#83d6a5;background:#83d6a51a}.import-preview-tag.attention{color:var(--gold);background:#f2c46d18}
+.import-preview-empty{color:var(--muted);font-size:.85rem;padding:8px 0}
+.import-preview-actions{display:flex;justify-content:flex-end;gap:9px;flex-wrap:wrap;margin-top:20px}
+.import-preview-actions button{border:1px solid var(--line);border-radius:999px;padding:9px 16px;background:var(--panel);color:var(--text)}
+.import-preview-actions button.primary{background:var(--sun);border-color:var(--sun);color:#1a0d08;font-weight:600}
+.import-preview-actions button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:520px){.import-preview-summary{gap:6px}.import-preview-stat{padding:10px}.import-preview-stat strong{font-size:1.5rem}.import-preview-item{gap:7px}.import-preview-tag{font-size:.66rem}}
 /* ============ FIM DO DIÁRIO ============ */
 
 /* ============ FIM DA REPAGINAÇÃO VISUAL ============ */
@@ -488,11 +515,12 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
   <div id="view"></div>
 </div>
 <dialog id="dlg"></dialog>
+<dialog id="import-preview-dialog" aria-labelledby="import-preview-title"></dialog>
 
 <script>
 /* =====================================================================
    CONTROLE DE VERSÃO DO PROJETO — LEIA ANTES DE MODIFICAR ESTE ARQUIVO
-   Versão atual: 17
+   Versão atual: 18
    REGRA OBRIGATÓRIA PARA QUALQUER IA OU PESSOA QUE EDITAR O PROJETO:
    - Sempre que fizer qualquer modificação no código, incremente HUB_VERSION
      em exatamente 1 (ex.: 4 -> 5), mesmo que seja uma correção pequena.
@@ -503,7 +531,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
      anterior. Se receber um arquivo com versão menor, avise o usuário.
    - Antes de editar, procure HUB_VERSION e confira a versão recebida.
    ===================================================================== */
-const HUB_VERSION = 17;
+const HUB_VERSION = 18;
 window.HUB_VERSION = HUB_VERSION;
 document.getElementById("project-version").textContent = `v${HUB_VERSION}`;
 
@@ -1473,24 +1501,60 @@ $("import-data").addEventListener("click",()=>{
   if(!fbUser){alert("Entre com Google antes de importar um backup.");return}
   $("import-file").click();
 });
+function showImportPreview(preview,backup){
+  const dialog=$("import-preview-dialog");
+  const labels={animeCatalog:"Catálogo de animes",animeNotes:"Anotações e avaliações",episodeLogs:"Diário de episódios",songScores:"Notas das músicas"};
+  const status={add:{label:"Será adicionado",className:"add"},ignore:{label:"Já existe · ignorado",className:""},attention:{label:"Conflito · preservado",className:"attention"}};
+  const total=preview.summary;
+  const groups=Object.keys(labels).map(name=>{
+    const items=preview.items.filter(item=>item.section===name);
+    const added=items.filter(item=>item.action==="add").length;
+    const ignored=items.filter(item=>item.action==="ignore").length;
+    const attention=items.filter(item=>item.action==="attention").length;
+    const visibleItems=items.slice(0,60);
+    const rows=items.length?visibleItems.map(item=>{
+      const st=status[item.action];
+      const extra=item.action==="attention"?`<small>Diferenças: ${esc(item.differences.join(", "))}</small>`:"";
+      return `<div class="import-preview-item"><div><strong>${esc(item.label)}</strong>${extra}</div><span class="import-preview-tag ${st.className}">${st.label}</span></div>`;
+    }).join("")+(items.length>visibleItems.length?`<div class="import-preview-empty">Mais ${items.length-visibleItems.length} registros nesta seção; todos foram considerados nos totais.</div>`:""):'<div class="import-preview-empty">Nenhum registro nesta seção.</div>';
+    return `<details ${items.length&&items.some(item=>item.action==="attention")?"open":""}><summary><span>${labels[name]}</span><span class="import-preview-group-count">${added} novos · ${ignored} iguais · ${attention} conflitos</span></summary><div class="import-preview-items">${rows}</div></details>`;
+  }).join("");
+  const sourceUid=backup.user?.uid||"não informado";
+  dialog.innerHTML=`<div class="import-preview"><div class="import-preview-head"><div><h2 id="import-preview-title">Prévia da importação</h2><p>Backup de ${esc(backup.exportedAt||"data não informada")} · origem: ${esc(sourceUid)}</p></div><button type="button" class="import-preview-close" data-import-cancel aria-label="Fechar prévia">Fechar</button></div><div class="import-preview-summary"><div class="import-preview-stat add"><strong>${total.add}</strong><span>Novos registros</span></div><div class="import-preview-stat"><strong>${total.ignore}</strong><span>Registros iguais</span></div><div class="import-preview-stat attention"><strong>${total.attention}</strong><span>Precisam de atenção</span></div></div><p class="import-preview-note">Importação segura: somente registros que ainda não existem serão adicionados. Registros existentes nunca serão sobrescritos. Conflitos e registros iguais serão ignorados, preservando integralmente os dados atuais do Hub.</p><div class="import-preview-groups">${groups}</div><div class="import-preview-actions"><button type="button" data-import-cancel>Cancelar</button><button type="button" class="primary" data-import-confirm ${total.add===0?"disabled":""}>Adicionar ${total.add} ${total.add===1?"registro novo":"registros novos"}</button></div></div>`;
+  return new Promise(resolve=>{
+    let settled=false;
+    const onCancel=event=>{event.preventDefault();finish(false)};
+    const finish=value=>{
+      if(settled)return;settled=true;
+      dialog.removeEventListener("cancel",onCancel);
+      if(dialog.open)dialog.close();
+      dialog.innerHTML="";
+      resolve(value);
+    };
+    dialog.querySelectorAll("[data-import-cancel]").forEach(button=>button.addEventListener("click",()=>finish(false)));
+    dialog.querySelector("[data-import-confirm]").addEventListener("click",()=>finish(true));
+    dialog.addEventListener("cancel",onCancel);
+    dialog.showModal();
+  });
+}
 $("import-file").addEventListener("change",async e=>{
   const file=e.target.files?.[0];if(!file)return;
-  const button=$("import-data");button.disabled=true;button.textContent="Lendo backup…";
+  const button=$("import-data");button.disabled=true;button.textContent="Analisando backup…";
   try{
     if(file.size>25*1024*1024)throw new Error("O arquivo ultrapassa o limite de 25 MB.");
     const backup=JSON.parse(await file.text());
-    const preview=hubFB.validateBackup(backup);
-    const counts=Object.entries(preview.counts).map(([name,count])=>`${name}: ${count}`).join("\n");
-    const sourceUid=backup.user?.uid||"não informado";
-    const message=`Backup válido\nExportado em: ${backup.exportedAt||"data não informada"}\nConta de origem: ${sourceUid}\n\n${counts}\n\nOs dados serão mesclados à conta atualmente conectada (${fbUser.uid}). Nada que já existe será apagado. Registros com o mesmo ID serão atualizados. Deseja continuar?`;
-    if(!confirm(message))return;
-    button.textContent="Importando…";
-    const result=await hubFB.importData(backup);
-    $("sync-status").textContent=`Importação concluída: ${result.total} registros restaurados/mesclados.`;
-    alert(`Backup importado com sucesso!\n${Object.entries(result.counts).map(([name,count])=>`${name}: ${count}`).join("\n")}\n\nRecarregue a página se alguma informação ainda não aparecer.`);
+    hubFB.validateBackup(backup);
+    const preview=await hubFB.previewImport(backup);
+    if(!await showImportPreview(preview,backup))return;
+    button.textContent="Importando registros novos…";
+    const result=await hubFB.importData(backup,preview);
+    const summary=`${result.added} adicionados · ${result.skipped} preservados · ${result.failed} falhas`;
+    $("sync-status").textContent=`Importação finalizada: ${summary}.`;
+    const details=Object.entries(result.counts).map(([name,count])=>`${({animeCatalog:"Catálogo",animeNotes:"Anotações",episodeLogs:"Diário",songScores:"Músicas"})[name]}: ${count.added} adicionados, ${count.ignored+count.attention+count.skipped} preservados (${count.ignored} iguais, ${count.attention} conflitos), ${count.failed} falhas`).join("\n");
+    alert(`${result.failed?"Importação parcialmente concluída.":"Importação concluída com sucesso!"}\n\n${details}${result.failed?"\n\nAlguns registros falharam. Consulte o console para detalhes.":""}\n\nOs registros existentes foram preservados.`);
   }catch(err){
     alert("Não foi possível importar o backup: "+(err.code||err.message));
-    $("sync-status").textContent="A importação não foi concluída. Seus dados existentes foram preservados; se houve falha durante o envio, parte dos registros pode já ter sido mesclada.";
+    $("sync-status").textContent="A importação não foi concluída. Os registros existentes não foram sobrescritos.";
   }finally{button.disabled=false;button.textContent="Importar backup (JSON)";e.target.value=""}
 });
 </script>
@@ -1684,17 +1748,59 @@ window.hubFB={
     }
     return {counts,total:Object.values(counts).reduce((a,b)=>a+b,0)};
   },
-  importData:async backup=>{
-    if(!auth.currentUser)throw new Error("Faça login para importar seus dados.");
+  previewImport:async backup=>{
+    requireOwner();
     const validation=window.hubFB.validateBackup(backup),uid=auth.currentUser.uid;
-    const dateFields=new Set(["createdAt","updatedAt","syncedAt","lastSyncedAt","themeCatalogUpdatedAt"]);
-    const restoreDates=(value,key="")=>{
+    const destinations={
+      animeCatalog:row=>doc(db,"users",uid,"animeCatalog",row.id),
+      animeNotes:row=>doc(db,"users",uid,"animeNotes",row.id),
+      episodeLogs:row=>doc(db,"users",uid,"episodeLogs",row.id),
+      songScores:row=>doc(db,"songScores",row.id)
+    };
+    const normalize=value=>{
+      if(value&&typeof value.toDate==="function")return value.toDate().toISOString();
+      if(value instanceof Date)return value.toISOString();
+      if(Array.isArray(value))return value.map(normalize);
+      if(value&&typeof value==="object"){
+        const out={};for(const key of Object.keys(value).sort())out[key]=normalize(value[key]);return out;
+      }
+      return value;
+    };
+    const same=(a,b)=>JSON.stringify(normalize(a))===JSON.stringify(normalize(b));
+    const items=[];
+    const tasks=[];
+    for(const section of Object.keys(destinations))for(const row of backup.data[section])tasks.push({section,row,ref:destinations[section](row)});
+    // Leituras pontuais ao servidor, com concorrência limitada para não disparar centenas de requisições simultâneas.
+    for(let i=0;i<tasks.length;i+=12){
+      const group=tasks.slice(i,i+12);
+      const results=await Promise.all(group.map(async task=>{
+        const snap=await getDocFromServer(task.ref);
+        const {id,...incoming}=task.row;
+        if(!snap.exists())return {...task,action:"add",label:task.row.title?.userPreferred||(typeof task.row.title==="string"?task.row.title:null)||task.row.name||task.row.animeTitle||(task.row.animeId?`Anime ${task.row.animeId}`:id)};
+        const existing=snap.data();
+        const keys=new Set([...Object.keys(existing),...Object.keys(incoming)]);
+        const differences=[...keys].filter(key=>!same(existing[key],incoming[key]));
+        return {...task,action:differences.length?"attention":"ignore",differences,label:task.row.title?.userPreferred||(typeof task.row.title==="string"?task.row.title:null)||task.row.name||task.row.animeTitle||(task.row.animeId?`Anime ${task.row.animeId}`:id)};
+      }));
+      items.push(...results);
+    }
+    const summary={add:items.filter(x=>x.action==="add").length,ignore:items.filter(x=>x.action==="ignore").length,attention:items.filter(x=>x.action==="attention").length};
+    const bySection={};
+    for(const section of Object.keys(destinations))bySection[section]={add:items.filter(x=>x.section===section&&x.action==="add").length,ignore:items.filter(x=>x.section===section&&x.action==="ignore").length,attention:items.filter(x=>x.section===section&&x.action==="attention").length};
+    return {counts:validation.counts,total:validation.total,summary,bySection,items:items.map(item=>({section:item.section,id:item.row.id,action:item.action,differences:item.differences||[],label:item.label})),createdAt:Date.now()};
+  },
+  importData:async(backup,preview)=>{
+    requireOwner();
+    const validation=window.hubFB.validateBackup(backup),uid=auth.currentUser.uid;
+    const plan=preview||await window.hubFB.previewImport(backup);
+    const dateFields=new Set(["createdAt","updatedAt","syncedAt","lastSyncedAt","themeCatalogUpdatedAt","confirmedAt"]);
+    const restoreDates=(value,key="",path=[])=>{
       if(value===null||value===undefined)return value;
-      if(dateFields.has(key)&&typeof value==="string"){
+      if(typeof value==="string"&&(dateFields.has(key)||(key==="changedAt"&&path.includes("definitiveRatingHistory")))){
         const time=Date.parse(value);if(Number.isFinite(time))return new Date(time);
       }
-      if(Array.isArray(value))return value.map(v=>restoreDates(v));
-      if(typeof value==="object"){const out={};for(const [k,v] of Object.entries(value))out[k]=restoreDates(v,k);return out;}
+      if(Array.isArray(value))return value.map(v=>restoreDates(v,"",path));
+      if(typeof value==="object"){const out={};for(const [k,v] of Object.entries(value))out[k]=restoreDates(v,k,[...path,k]);return out;}
       return value;
     };
     const destinations={
@@ -1703,21 +1809,56 @@ window.hubFB={
       episodeLogs:row=>doc(db,"users",uid,"episodeLogs",row.id),
       songScores:row=>doc(db,"songScores",row.id)
     };
-    const operations=[];
-    for(const name of Object.keys(destinations))for(const row of backup.data[name]){
-      const {id,...fields}=row;
-      operations.push({ref:destinations[name](row),data:restoreDates(fields)});
+    const rowsBySection=Object.fromEntries(Object.keys(destinations).map(name=>[name,new Map(backup.data[name].map(row=>[row.id,row]))]));
+    const candidates=(plan.items||[]).filter(item=>item.action==="add");
+    const counts=Object.fromEntries(Object.keys(destinations).map(name=>[name,{added:0,skipped:0,failed:0}]));
+    const failures=[];
+    // Cada criação é transacional: se outro processo criar o documento após a prévia, ele não será sobrescrito.
+    for(let i=0;i<candidates.length;i+=5){
+      const group=candidates.slice(i,i+5);
+      const outcomes=await Promise.all(group.map(async item=>{
+        const row=rowsBySection[item.section]?.get(item.id);
+        if(!row)return {section:item.section,status:"failed",error:"Registro não encontrado no arquivo após a prévia."};
+        try{
+          const ref=destinations[item.section](row);
+          const {id,...fields}=row;
+          const data=restoreDates(fields);
+          const status=await runTransaction(db,async transaction=>{
+            const snap=await transaction.get(ref);
+            if(snap.exists())return "skipped";
+            transaction.set(ref,data);
+            return "added";
+          });
+          return {section:item.section,status};
+        }catch(error){return {section:item.section,status:"failed",error:error?.code||error?.message||"Erro desconhecido",id:item.id}}
+      }));
+      for(const outcome of outcomes){
+        counts[outcome.section][outcome.status]++;
+        if(outcome.status==="failed")failures.push(outcome);
+      }
     }
-    // Firestore aceita até 500 operações por lote; usamos margem para manter o limite.
-    for(let i=0;i<operations.length;i+=400){
-      const batch=writeBatch(db);
-      for(const op of operations.slice(i,i+400))batch.set(op.ref,op.data,{merge:true});
-      await batch.commit();
+    for(const section of Object.keys(counts)){
+      counts[section].ignored=plan.bySection?.[section]?.ignore||0;
+      counts[section].attention=plan.bySection?.[section]?.attention||0;
     }
-    await cacheDelete("songScores");await cacheDelete("stats:animeNotes");await cacheDelete("stats:episodeLogs");
-    for(const row of backup.data.animeNotes)await cacheDelete(noteCacheKey(row.id));
-    for(const row of backup.data.episodeLogs)await cacheDelete(logsCacheKey(row.animeId));
-    return {counts:validation.counts,total:validation.total};
+    const added=Object.values(counts).reduce((sum,c)=>sum+c.added,0);
+    const skipped=Object.values(counts).reduce((sum,c)=>sum+c.skipped+c.ignored+c.attention,0);
+    const failed=Object.values(counts).reduce((sum,c)=>sum+c.failed,0);
+    if(added){
+      await cacheDelete("songScores");await cacheDelete("stats:animeNotes");await cacheDelete("stats:episodeLogs");
+      for(const item of candidates){
+        if(item.section==="animeNotes")await cacheDelete(noteCacheKey(item.id));
+        if(item.section==="episodeLogs"){
+          const row=rowsBySection.episodeLogs.get(item.id);if(row?.animeId!==undefined)await cacheDelete(logsCacheKey(row.animeId));
+        }
+        if(item.section==="songScores"){
+          const animeId=String(item.id).split(":")[0];await cacheDelete(`songScoresAnime:${animeId}`);
+        }
+      }
+      if(counts.animeCatalog.added)await cacheDelete(`anilist:${OWNER_ANILIST_USERNAME.toLowerCase()}`);
+    }
+    if(failures.length)console.error("Falhas na importação do backup:",failures);
+    return {counts,added,skipped,failed,failures,total:validation.total};
   },
   getAnimeNote:async (animeId,{refresh=false}={})=>{
     const key=noteCacheKey(animeId);
