@@ -652,15 +652,19 @@ function renderThemeList(id,th,note,offline=false){
 
 async function openAnime(id){
   const a=byId(id),d=$("dlg");activeDiaryAnime=id;window.activeDiaryAnime=id;
+  let note={};try{note=await hubFB.getAnimeNote(id)}catch(e){}
+  
+  // Selo visual da nota provisória para o cabeçalho
+  const provBadge = note?.provisionalTier ? `<span class="tier" style="--c:var(--gold)">${esc(note.provisionalTier)} <small>Provisória</small></span>` : '';
+
   d.innerHTML=`<div class="dh" ${bg(a?.banner||a?.cover)}><button class="dx" onclick="dlg.close()">Fechar</button><h2>${esc(a?.title||"Anime "+id)}</h2>
-   <div class="meta">${a?when(a):""} ${a?.score?badge(a.score):""} · <a href="${a?.url||"https://anilist.co/anime/"+id}" target="_blank" rel="noopener">AniList</a></div>
+   <div class="meta">${a?when(a):""} ${a?.score?badge(a.score):""} ${provBadge} · <a href="${a?.url||"https://anilist.co/anime/"+id}" target="_blank" rel="noopener">AniList</a></div>
    <div><button type="button" class="anime-refresh" data-refresh-anime="${id}">↻ Atualizar dados deste anime</button><span class="anime-refresh-status" id="anime-refresh-status" role="status"></span></div></div>
    <div class="db"><div class="detail-tabs"><button type="button" data-detail-tab="themes" aria-selected="true">OP e ED</button><button type="button" data-detail-tab="experience" aria-selected="false">Minha experiência</button><button type="button" data-detail-tab="diary" aria-selected="false">Diário de episódios</button></div>
    <section id="detail-themes"><div id="themes" class="msg">Carregando músicas e comentários salvos…</div></section>
    <section id="detail-experience" class="hidden"><div id="experience-content" class="msg">Carregando…</div></section>
    <section id="detail-diary" class="hidden"><div id="diary-content" class="msg">Carregando diário…</div></section></div>`;
   d.showModal();
-  let note={};try{note=await hubFB.getAnimeNote(id)}catch(e){}
   let apiAvailable=false;
   try{
     const th=await fetchThemes(id);apiAvailable=true;
@@ -729,27 +733,55 @@ async function loadExperience(id){
     const data=await hubFB.getAnimeNote(id);if(activeDiaryAnime!==id||!$("dlg").open)return;
     const platforms=Array.isArray(data.platforms)?data.platforms:[];
     const languageLabel=({sub:"Legendado",dub:"Dublado",other:"Outro"})[data.language]||"Não informado";
+    const currentTier=data.provisionalTier||"";
+
     if(!fbUser){
-      const hasData=!!(data.language||platforms.length||data.otherPlatform||data.viewingNotes);
+      const hasData=!!(data.language||platforms.length||data.otherPlatform||data.viewingNotes||currentTier);
       root.className="";
-      root.innerHTML=hasData?`<div class="experience-public"><p><span class="meta">Idioma</span><br><strong>${esc(languageLabel)}</strong></p><p><span class="meta">Plataforma(s)</span><br><strong>${esc([...platforms,...(data.otherPlatform?[data.otherPlatform]:[])].join(", ")||"Não informado")}</strong></p><p><span class="meta">Outras informações</span></p><p style="white-space:pre-wrap">${esc(data.viewingNotes||"Não informado")}</p></div>`:'<div class="msg">Ainda não há informações públicas sobre como assisti a este anime.</div>';
+      root.innerHTML=hasData?`<div class="experience-public">
+       <p><span class="meta">Nota Provisória</span><br><strong>${esc(currentTier||"Não informada")}</strong></p>
+       <p><span class="meta">Idioma</span><br><strong>${esc(languageLabel)}</strong></p>
+       <p><span class="meta">Plataforma(s)</span><br><strong>${esc([...platforms,...(data.otherPlatform?[data.otherPlatform]:[])].join(", ")||"Não informado")}</strong></p>
+       <p><span class="meta">Outras informações</span></p><p style="white-space:pre-wrap">${esc(data.viewingNotes||"Não informado")}</p></div>`:'<div class="msg">Ainda não há informações públicas sobre como assisti a este anime.</div>';
       return;
     }
+
+    const tierOptions=["95+", "90+", "85+", "80+", "75+", "70+", "-70"];
+
     root.className="";
-    root.innerHTML=`<p class="diary-intro">Informações opcionais sobre como você assistiu a este anime. Elas ficam salvas separadamente dos dados do AniList.</p>
+    root.innerHTML=`<p class="diary-intro">Informações opcionais e notas provisórias guardadas separadamente dos dados do AniList.</p>
       <form class="experience-form" id="experience-form">
+       <div>
+         <label for="provisional-tier">Nota Provisória / Categoria</label>
+         <select id="provisional-tier">
+           <option value="">Sem nota provisória</option>
+           ${tierOptions.map(t=>`<option value="${t}" ${currentTier===t?"selected":""}>${t}</option>`).join("")}
+         </select>
+         <p class="platform-hint">Escolhe a faixa de nota que usas habitualmente (ex: 95+, 90+, etc.).</p>
+       </div>
        <div><label for="watch-language">Idioma</label><select id="watch-language"><option value="">Não informado</option><option value="sub" ${data.language==="sub"?"selected":""}>Legendado</option><option value="dub" ${data.language==="dub"?"selected":""}>Dublado</option><option value="other" ${data.language==="other"?"selected":""}>Outro</option></select></div>
        <div><label>Plataforma(s) em que assistiu</label><div class="platform-picker" id="watch-platforms">
         ${["Crunchyroll","Netflix","Prime Video","Disney+","Max","YouTube","Outra"].map(platform=>`<label class="platform-option"><input type="checkbox" name="watch-platform" value="${platform}" ${platforms.includes(platform)?"checked":""}><span>${platform}</span></label>`).join("")}
-       </div><p class="platform-hint">Selecione quantas plataformas quiser. As opções marcadas ficam destacadas.</p></div>
+       </div><p class="platform-hint">Selecione quantas plataformas quiser.</p></div>
        <div><label for="watch-platform-other">Outra plataforma (opcional)</label><input id="watch-platform-other" maxlength="100" value="${esc(data.otherPlatform||"")}" placeholder="Nome da plataforma"></div>
        <div><label for="watch-notes">Outras informações (opcional)</label><textarea id="watch-notes" maxlength="5000" placeholder="Ex.: acompanhei semanalmente, assisti com amigos…">${esc(data.viewingNotes||"")}</textarea></div>
        <button type="submit">Salvar minha experiência</button><span class="experience-status" id="experience-status" role="status"></span>
       </form>`;
+
     $("experience-form").addEventListener("submit",async ev=>{
       ev.preventDefault();const btn=ev.currentTarget.querySelector('button[type="submit"]'),status=$("experience-status");btn.disabled=true;status.textContent="Salvando…";
       const selectedPlatforms=[...$("watch-platforms").querySelectorAll("input[name=\"watch-platform\"]:checked")].map(o=>o.value);
-      try{await hubFB.saveAnimeNote(id,{language:$("watch-language").value,platforms:selectedPlatforms,otherPlatform:$("watch-platform-other").value.trim(),viewingNotes:$("watch-notes").value.trim()});status.textContent="Salvo!";}
+      const provisionalTier=$("provisional-tier").value;
+      try{
+        await hubFB.saveAnimeNote(id,{
+          provisionalTier,
+          language:$("watch-language").value,
+          platforms:selectedPlatforms,
+          otherPlatform:$("watch-platform-other").value.trim(),
+          viewingNotes:$("watch-notes").value.trim()
+        });
+        status.textContent="Salvo com sucesso!";
+      }
       catch(err){status.textContent="Não foi possível salvar: "+(err.code||err.message)}finally{btn.disabled=false}
     });
   }catch(err){root.className="";root.innerHTML=`<div class="msg err">Não consegui carregar as informações (${esc(err.code||err.message)}).</div>`}
