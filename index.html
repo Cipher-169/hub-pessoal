@@ -492,7 +492,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 <script>
 /* =====================================================================
    CONTROLE DE VERSÃO DO PROJETO — LEIA ANTES DE MODIFICAR ESTE ARQUIVO
-   Versão atual: 16
+   Versão atual: 17
    REGRA OBRIGATÓRIA PARA QUALQUER IA OU PESSOA QUE EDITAR O PROJETO:
    - Sempre que fizer qualquer modificação no código, incremente HUB_VERSION
      em exatamente 1 (ex.: 4 -> 5), mesmo que seja uma correção pequena.
@@ -503,7 +503,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
      anterior. Se receber um arquivo com versão menor, avise o usuário.
    - Antes de editar, procure HUB_VERSION e confira a versão recebida.
    ===================================================================== */
-const HUB_VERSION = 16;
+const HUB_VERSION = 17;
 window.HUB_VERSION = HUB_VERSION;
 document.getElementById("project-version").textContent = `v${HUB_VERSION}`;
 
@@ -862,7 +862,7 @@ async function loadExperience(id){
       ? `<div class="rating-history"><h3>Histórico da nota provisória</h3><ol>${ratingHistory.map(entry=>`<li><strong>${entry.score===null||entry.score===undefined?"Nota removida":`${esc(entry.score)}/100`}</strong><span>${esc(historyDate(entry.changedAt))}</span></li>`).join("")}</ol><p class="platform-hint">Cada registro representa uma alteração real da nota. O histórico é preservado mesmo quando você terminar o anime.</p></div>`
       : '<p class="platform-hint">As alterações da nota serão registradas aqui com data e horário.</p>';
     const definitiveHistoryHtml=definitiveHistory.length
-      ? `<div class="rating-history"><h3>Histórico da nota definitiva</h3><ol>${definitiveHistory.slice().reverse().map(entry=>`<li><strong>${esc(entry.score)}/100</strong><span>Provisória: ${entry.provisionalScoreAtConfirmation===null||entry.provisionalScoreAtConfirmation===undefined?"Não informada":`${esc(entry.provisionalScoreAtConfirmation)}/100`}<br>${esc(historyDate(entry.changedAt))}</span></li>`).join("")}</ol><p class="platform-hint">Cada revisão preserva a nota provisória que existia naquele momento.</p></div>`
+      ? `<div class="rating-history"><h3>Histórico da nota definitiva</h3><ol>${definitiveHistory.map((entry,index)=>({...entry,previousScore:entry.previousScore??(index>0?definitiveHistory[index-1]?.score:null)})).reverse().map(entry=>`<li><strong>${esc(entry.score)}/100</strong><span>Anterior: ${entry.previousScore===null||entry.previousScore===undefined?"Não registrada":`${esc(entry.previousScore)}/100`}<br>Provisória: ${entry.provisionalScoreAtConfirmation===null||entry.provisionalScoreAtConfirmation===undefined?"Não informada":`${esc(entry.provisionalScoreAtConfirmation)}/100`}<br>${esc(historyDate(entry.changedAt))}</span></li>`).join("")}</ol><p class="platform-hint">Cada definição ou revisão preserva a nota anterior, a nova nota e a nota provisória daquele momento.</p></div>`
       : "";
     const definitiveSection=definitiveScore!==null
       ? `<div class="definitive-rating"><div class="definitive-rating-head"><div><span class="meta">Nota definitiva do Hub</span><div class="definitive-rating-score">${esc(definitiveScore)}/100</div></div><button type="button" class="primary" data-open-definitive>Revisar nota definitiva</button></div><div class="definitive-rating-meta">Nota provisória na confirmação: ${definitiveRating.provisionalScoreAtConfirmation===null||definitiveRating.provisionalScoreAtConfirmation===undefined?"Não informada":`${esc(definitiveRating.provisionalScoreAtConfirmation)}/100`} · Última confirmação: ${esc(historyDate(definitiveRating.confirmedAt))}</div>${definitiveHistoryHtml}</div>`
@@ -989,6 +989,9 @@ async function renderStats(refresh=false){
     ]);
     const noteRows=Object.entries(notes||{}),noteValues=noteRows.map(([,v])=>v||{}),totalNotes=noteRows.length;
     const currentProvisionalRatings=noteRows.map(([id,n])=>({id,score:n?.provisionalScore})).filter(x=>x.score!==null&&x.score!==undefined&&Number.isFinite(Number(x.score)));
+    const currentDefinitiveRatings=noteRows.map(([id,n])=>({id,score:n?.definitiveRating?.score})).filter(x=>x.score!==null&&x.score!==undefined&&Number.isFinite(Number(x.score)));
+    const definitiveAverage=currentDefinitiveRatings.length?(currentDefinitiveRatings.reduce((sum,x)=>sum+Number(x.score),0)/currentDefinitiveRatings.length).toFixed(1).replace('.',','):'—';
+    const definitiveRevisionCount=noteRows.reduce((sum,[,n])=>sum+(Array.isArray(n?.definitiveRatingHistory)?n.definitiveRatingHistory.length:0),0);
     const provisionalHistory=[];
     noteRows.forEach(([id,n])=>{
       (Array.isArray(n?.provisionalRatingHistory)?n.provisionalRatingHistory:[]).forEach(entry=>{
@@ -1059,6 +1062,11 @@ async function renderStats(refresh=false){
        <article class="stat-card"><small>Músicas avaliadas</small><strong>${statNum(scoreTotal)}</strong><span>${songStats.OP.length} OPs · ${songStats.ED.length} EDs</span></article>
        <article class="stat-card"><small>Comentários de OP/ED</small><strong>${statNum(totalThemeComments)}</strong><span>Em ${statNum(withThemeComments)} anime(s)</span></article>
       </div>
+      <section class="stats-section"><h2>Avaliações consolidadas</h2><div class="stats-grid">
+       <article class="stat-card"><small>Animes com nota definitiva</small><strong>${statNum(currentDefinitiveRatings.length)}</strong><span>Avaliação consolidada mais recente</span></article>
+       <article class="stat-card"><small>Média das notas definitivas</small><strong>${definitiveAverage}</strong><span>Escala de 0 a 100</span></article>
+       <article class="stat-card"><small>Definições e revisões</small><strong>${statNum(definitiveRevisionCount)}</strong><span>Registros preservados no histórico</span></article>
+      </div><p class="stats-note">A média consolidada considera somente a nota definitiva atual de cada anime. Revisões anteriores permanecem armazenadas, mas não são contadas novamente nessa média.</p></section>
       <section class="stats-section"><h2>Evolução das notas provisórias</h2><div class="stats-grid">
        <article class="stat-card"><small>Animes com nota provisória</small><strong>${statNum(currentProvisionalRatings.length)}</strong><span>Notas numéricas atuais</span></article>
        <article class="stat-card"><small>Média das notas provisórias</small><strong>${provisionalAverage}</strong><span>Escala de 0 a 100</span></article>
@@ -1489,7 +1497,7 @@ $("import-file").addEventListener("change",async e=>{
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 import {getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
-import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,onSnapshot,doc,setDoc,deleteDoc,deleteField,arrayUnion,serverTimestamp,Timestamp,addDoc,getDocs,getDoc,getDocFromServer,getDocsFromCache,getDocsFromServer,getDocFromCache,query,where,updateDoc,writeBatch} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
+import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,onSnapshot,doc,setDoc,deleteDoc,deleteField,arrayUnion,serverTimestamp,Timestamp,addDoc,getDocs,getDoc,getDocFromServer,getDocsFromCache,getDocsFromServer,getDocFromCache,query,where,updateDoc,writeBatch,runTransaction} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
 
 const app=initializeApp({
   apiKey:"AIzaSyCgHMZV_wIFOV4QuJi3bBRbu_iOXSJ1ahY",
@@ -1748,43 +1756,54 @@ window.hubFB={
     requireOwner();
     const numericScore=Number(score);
     if(!Number.isInteger(numericScore)||numericScore<0||numericScore>100)throw new Error("Informe uma nota definitiva inteira entre 0 e 100.");
-    const old=(await cacheGet(noteCacheKey(animeId)))?.data||{};
-    const previousScore=old.definitiveRating?.score;
-    if(previousScore!==null&&previousScore!==undefined&&Number(previousScore)===numericScore){
-      return {changed:false,score:numericScore};
-    }
-    const rawProvisional=old.provisionalScore;
-    const provisionalSnapshot=rawProvisional===null||rawProvisional===undefined||rawProvisional===""?null:Number(rawProvisional);
-    const confirmedAt=Timestamp.now();
-    const changedAt=confirmedAt.toDate().toISOString();
-    const historyEntry={score:numericScore,provisionalScoreAtConfirmation:provisionalSnapshot,changedAt:confirmedAt};
-    const payload={
-      animeId:Number(animeId),
-      definitiveRating:{
+    const ref=notePath(animeId);
+    // A transação lê a versão atual no servidor: evita depender de cache antigo
+    // e impede que duas revisões simultâneas sobrescrevam o histórico uma da outra.
+    const result=await runTransaction(db,async transaction=>{
+      const snap=await transaction.get(ref);
+      const old=snap.exists()?snap.data():{};
+      const rawPrevious=old.definitiveRating?.score;
+      const previousScore=rawPrevious===null||rawPrevious===undefined?null:Number(rawPrevious);
+      if(previousScore!==null&&Number.isFinite(previousScore)&&previousScore===numericScore){
+        return {changed:false,score:numericScore,data:old};
+      }
+      const rawProvisional=old.provisionalScore;
+      const provisionalSnapshot=rawProvisional===null||rawProvisional===undefined||rawProvisional===""?null:Number(rawProvisional);
+      const changedAt=Timestamp.now();
+      const historyEntry={
+        previousScore:Number.isFinite(previousScore)?previousScore:null,
         score:numericScore,
-        provisionalScoreAtConfirmation:provisionalSnapshot,
-        confirmedAt
-      },
-      definitiveRatingHistory:arrayUnion(historyEntry),
-      updatedAt:serverTimestamp()
-    };
-    const oldHistory=Array.isArray(old.definitiveRatingHistory)?old.definitiveRatingHistory:[];
-    const updatedCache={
-      ...old,
-      definitiveRating:{
+        provisionalScoreAtConfirmation:Number.isFinite(provisionalSnapshot)?provisionalSnapshot:null,
+        changedAt
+      };
+      const oldHistory=Array.isArray(old.definitiveRatingHistory)?old.definitiveRatingHistory:[];
+      const definitiveRating={
         score:numericScore,
-        provisionalScoreAtConfirmation:provisionalSnapshot,
+        provisionalScoreAtConfirmation:historyEntry.provisionalScoreAtConfirmation,
         confirmedAt:changedAt
-      },
-      definitiveRatingHistory:[
-        ...oldHistory,
-        {score:numericScore,provisionalScoreAtConfirmation:provisionalSnapshot,changedAt}
-      ]
-    };
-    await setDoc(notePath(animeId),payload,{merge:true});
-    await cacheSet(noteCacheKey(animeId),updatedCache);
-    await cacheDelete("stats:animeNotes");
-    return {changed:true,score:numericScore,provisionalScoreAtConfirmation:provisionalSnapshot,confirmedAt:changedAt};
+      };
+      const nextData={
+        ...old,
+        animeId:Number(animeId),
+        definitiveRating,
+        definitiveRatingHistory:[...oldHistory,historyEntry],
+        updatedAt:changedAt
+      };
+      transaction.set(ref,{
+        animeId:Number(animeId),
+        definitiveRating,
+        definitiveRatingHistory:nextData.definitiveRatingHistory,
+        updatedAt:serverTimestamp()
+      },{merge:true});
+      return {
+        changed:true,score:numericScore,previousScore:historyEntry.previousScore,
+        provisionalScoreAtConfirmation:historyEntry.provisionalScoreAtConfirmation,
+        confirmedAt:changedAt.toDate().toISOString(),data:nextData
+      };
+    });
+    await cacheSet(noteCacheKey(animeId),result.data);
+    if(result.changed)await cacheDelete("stats:animeNotes");
+    return result;
   },
   saveThemeComment:async(animeId,slug,comment)=>{requireOwner();await setDoc(notePath(animeId),{animeId:Number(animeId),themeComments:{[slug]:comment},updatedAt:serverTimestamp()},{merge:true});const old=(await cacheGet(noteCacheKey(animeId)))?.data||{};await cacheSet(noteCacheKey(animeId),{...old,themeComments:{...(old.themeComments||{}),[slug]:comment}});await cacheDelete("stats:animeNotes");},
   associateProvisionalTheme:async(animeId,kind,targetSlug)=>{
