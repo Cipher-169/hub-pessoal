@@ -403,6 +403,16 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 .theme-provisional{border-style:dashed!important;border-color:rgba(245,166,60,.55)!important}.theme-kind-badge{display:inline-flex;align-items:center;vertical-align:middle;margin-left:7px;padding:3px 8px;border-radius:999px;font-size:.72rem;font-weight:750;letter-spacing:.02em;line-height:1.2}.theme-kind-badge.op{color:#bfdbfe;background:rgba(37,99,235,.2);border:1px solid rgba(96,165,250,.45)}.theme-kind-badge.ed{color:#a7f3d0;background:rgba(5,150,105,.2);border:1px solid rgba(52,211,153,.4)}.theme-comment-wrap{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
 .theme-comment-wrap label{display:block;color:var(--muted);font-size:.8rem;margin-bottom:5px}
 .theme-comment-save{margin-top:7px}.experience-status{color:var(--muted);font-size:.82rem;min-height:1.2em}
+.definitive-rating{display:grid;gap:9px;padding:13px;border:1px solid rgba(242,196,109,.35);border-radius:11px;background:rgba(242,196,109,.055)}
+.definitive-rating-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.definitive-rating-score{font:700 1.45rem var(--serif);color:var(--gold)}
+.definitive-rating button,.definitive-editor button{justify-self:start;border:1px solid var(--line);border-radius:999px;padding:8px 14px;background:rgba(255,255,255,.04);color:var(--text)}
+.definitive-rating button.primary,.definitive-editor button.primary{background:var(--sun);color:#1a0d08;border-color:transparent;font-weight:650}
+.definitive-editor{display:grid;gap:9px;padding:13px;border:1px solid var(--line);border-radius:11px;background:rgba(10,13,24,.45)}
+.definitive-editor[hidden]{display:none}
+.definitive-editor-actions{display:flex;gap:8px;flex-wrap:wrap}
+.definitive-rating-meta{color:var(--muted);font-size:.8rem}
+
 @media(max-width:560px){.diary-form{grid-template-columns:1fr}.diary-form textarea,.diary-form .wide-field{grid-column:auto}.diary-entry-head{align-items:flex-start;flex-direction:column}}
 /* ============ SINCRONIZAÇÃO E BACKUP ============ */
 .sync-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 16px}
@@ -454,7 +464,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 <script>
 /* =====================================================================
    CONTROLE DE VERSÃO DO PROJETO — LEIA ANTES DE MODIFICAR ESTE ARQUIVO
-   Versão atual: 14
+   Versão atual: 15
    REGRA OBRIGATÓRIA PARA QUALQUER IA OU PESSOA QUE EDITAR O PROJETO:
    - Sempre que fizer qualquer modificação no código, incremente HUB_VERSION
      em exatamente 1 (ex.: 4 -> 5), mesmo que seja uma correção pequena.
@@ -465,7 +475,7 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
      anterior. Se receber um arquivo com versão menor, avise o usuário.
    - Antes de editar, procure HUB_VERSION e confira a versão recebida.
    ===================================================================== */
-const HUB_VERSION = 14;
+const HUB_VERSION = 15;
 window.HUB_VERSION = HUB_VERSION;
 document.getElementById("project-version").textContent = `v${HUB_VERSION}`;
 
@@ -802,21 +812,38 @@ async function loadExperience(id){
       ? String(data.provisionalScore) : "";
     const legacyTier = data.provisionalTier || "";
     const ratingHistory = Array.isArray(data.provisionalRatingHistory) ? data.provisionalRatingHistory : [];
+    const definitiveRating=data.definitiveRating&&typeof data.definitiveRating==="object"?data.definitiveRating:null;
+    const definitiveScore=definitiveRating?.score!==null&&definitiveRating?.score!==undefined&&Number.isFinite(Number(definitiveRating.score))
+      ? Number(definitiveRating.score) : null;
+    const definitiveHistory=Array.isArray(data.definitiveRatingHistory)?data.definitiveRatingHistory:[];
+    const dateValue=value=>{
+      if(!value)return null;
+      if(typeof value.toDate==="function")return value.toDate();
+      if(typeof value==="object"&&Number.isFinite(value.seconds))return new Date(value.seconds*1000+(Number(value.nanoseconds)||0)/1e6);
+      const parsed=new Date(value);
+      return Number.isNaN(parsed.getTime())?null:parsed;
+    };
     const historyDate = value => {
-      const date = value ? new Date(value) : null;
-      return date && !Number.isNaN(date.getTime())
-        ? date.toLocaleString("pt-BR", {dateStyle:"short", timeStyle:"short"})
-        : "Data não disponível";
+      const date=dateValue(value);
+      return date?date.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}):"Data não disponível";
     };
     const historyHtml = ratingHistory.length
       ? `<div class="rating-history"><h3>Histórico da nota provisória</h3><ol>${ratingHistory.map(entry=>`<li><strong>${entry.score===null||entry.score===undefined?"Nota removida":`${esc(entry.score)}/100`}</strong><span>${esc(historyDate(entry.changedAt))}</span></li>`).join("")}</ol><p class="platform-hint">Cada registro representa uma alteração real da nota. O histórico é preservado mesmo quando você terminar o anime.</p></div>`
       : '<p class="platform-hint">As alterações da nota serão registradas aqui com data e horário.</p>';
+    const definitiveHistoryHtml=definitiveHistory.length
+      ? `<div class="rating-history"><h3>Histórico da nota definitiva</h3><ol>${definitiveHistory.slice().reverse().map(entry=>`<li><strong>${esc(entry.score)}/100</strong><span>Provisória: ${entry.provisionalScoreAtConfirmation===null||entry.provisionalScoreAtConfirmation===undefined?"Não informada":`${esc(entry.provisionalScoreAtConfirmation)}/100`}<br>${esc(historyDate(entry.changedAt))}</span></li>`).join("")}</ol><p class="platform-hint">Cada revisão preserva a nota provisória que existia naquele momento.</p></div>`
+      : "";
+    const definitiveSection=definitiveScore!==null
+      ? `<div class="definitive-rating"><div class="definitive-rating-head"><div><span class="meta">Nota definitiva do Hub</span><div class="definitive-rating-score">${esc(definitiveScore)}/100</div></div><button type="button" class="primary" data-open-definitive>Revisar nota definitiva</button></div><div class="definitive-rating-meta">Nota provisória na confirmação: ${definitiveRating.provisionalScoreAtConfirmation===null||definitiveRating.provisionalScoreAtConfirmation===undefined?"Não informada":`${esc(definitiveRating.provisionalScoreAtConfirmation)}/100`} · Última confirmação: ${esc(historyDate(definitiveRating.confirmedAt))}</div>${definitiveHistoryHtml}</div>`
+      : `<div class="definitive-rating"><div><span class="meta">Nota definitiva do Hub</span><p class="platform-hint">Ainda não definida. A nota provisória não será convertida automaticamente.</p></div><button type="button" class="primary" data-open-definitive>Definir nota definitiva</button></div>`;
+    const definitiveEditor=`<div class="definitive-editor" id="definitive-editor" hidden><div><label for="definitive-score">Nota definitiva (0 a 100)</label><input id="definitive-score" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="Ex.: 90" value="${definitiveScore===null?esc(currentScore):esc(definitiveScore)}"><p class="platform-hint">A nota provisória atual (${currentScore!==""?`${esc(currentScore)}/100`:"não informada"}) será registrada como fotografia desta confirmação. Ela não será alterada se você mudar a nota provisória depois.</p></div><div class="definitive-editor-actions"><button type="button" class="primary" data-confirm-definitive>Confirmar nota definitiva</button><button type="button" data-cancel-definitive>Cancelar</button></div><span class="experience-status" id="definitive-status" role="status"></span></div>`;
 
     if(!fbUser){
-      const hasData=!!(data.language||platforms.length||data.otherPlatform||data.viewingNotes||currentScore||legacyTier);
+      const hasData=!!(data.language||platforms.length||data.otherPlatform||data.viewingNotes||currentScore||legacyTier||definitiveScore!==null);
       root.className="";
       root.innerHTML=hasData?`<div class="experience-public">
-       <p><span class="meta">Nota Provisória</span><br><strong>${esc(currentScore!==""?`${currentScore}/100`:legacyTier||"Não informada")}</strong></p>
+       ${definitiveScore!==null?`<p><span class="meta">Nota definitiva do Hub</span><br><strong>${esc(definitiveScore)}/100</strong></p>`:""}
+       <p><span class="meta">Nota provisória</span><br><strong>${esc(currentScore!==""?`${currentScore}/100`:legacyTier||"Não informada")}</strong></p>
        <p><span class="meta">Idioma</span><br><strong>${esc(languageLabel)}</strong></p>
        <p><span class="meta">Plataforma(s)</span><br><strong>${esc([...platforms,...(data.otherPlatform?[data.otherPlatform]:[])].join(", ")||"Não informado")}</strong></p>
        <p><span class="meta">Outras informações</span></p><p style="white-space:pre-wrap">${esc(data.viewingNotes||"Não informado")}</p></div>`:'<div class="msg">Ainda não há informações públicas sobre como assisti a este anime.</div>';
@@ -824,12 +851,14 @@ async function loadExperience(id){
     }
 
     root.className="";
-    root.innerHTML=`<p class="diary-intro">A nota provisória é independente da nota definitiva do AniList. Você pode alterá-la durante a experiência; cada mudança real fica registrada no histórico.</p>
+    root.innerHTML=`<p class="diary-intro">A nota provisória é independente da nota definitiva do Hub. Você pode alterá-la durante a experiência; cada mudança real fica registrada no histórico.</p>
       <form class="experience-form" id="experience-form">
+       ${definitiveSection}
+       ${definitiveEditor}
        <div>
          <label for="provisional-score">Nota provisória (0 a 100)</label>
          <input id="provisional-score" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="Ex.: 85" value="${esc(currentScore)}">
-         <p class="platform-hint">Essa nota não altera sua avaliação no AniList. Deixe em branco se ainda não quiser avaliar.${legacyTier?` Registro antigo encontrado (${esc(legacyTier)}); ao salvar uma nota numérica, ele será substituído.`:""}</p>
+         <p class="platform-hint">Essa nota é independente da nota definitiva e não altera sua avaliação no AniList. Deixe em branco se ainda não quiser avaliar.${legacyTier?` Registro antigo encontrado (${esc(legacyTier)}); ao salvar uma nota numérica, ele será substituído.`:""}</p>
        </div>
        ${historyHtml}
        <div><label for="watch-language">Idioma</label><select id="watch-language"><option value="">Não informado</option><option value="sub" ${data.language==="sub"?"selected":""}>Legendado</option><option value="dub" ${data.language==="dub"?"selected":""}>Dublado</option><option value="other" ${data.language==="other"?"selected":""}>Outro</option></select></div>
@@ -841,6 +870,9 @@ async function loadExperience(id){
        <button type="submit">Salvar minha experiência</button><span class="experience-status" id="experience-status" role="status"></span>
       </form>`;
 
+    $("definitive-score").addEventListener("keydown",ev=>{
+      if(ev.key==="Enter"){ev.preventDefault();$("experience-form").querySelector("[data-confirm-definitive]")?.click();}
+    });
     $("experience-form").addEventListener("submit",async ev=>{
       ev.preventDefault();const btn=ev.currentTarget.querySelector('button[type="submit"]'),status=$("experience-status");btn.disabled=true;status.textContent="Salvando…";
       const selectedPlatforms=[...$("watch-platforms").querySelectorAll("input[name=\"watch-platform\"]:checked")].map(o=>o.value);
@@ -858,21 +890,18 @@ async function loadExperience(id){
           viewingNotes:$("watch-notes").value.trim()
         });
         status.textContent="Salvo com sucesso!";
-        // Atualiza o selo do cabeçalho sem nova leitura do Firestore.
         const badgeNode=$("dlg").querySelector(".dh .meta");
         if(badgeNode){
           const oldBadge=badgeNode.querySelector(".provisional-rating-badge");
           if(oldBadge)oldBadge.remove();
           if(provisionalScore!==null){const scoreBadge=document.createElement("span");scoreBadge.className="tier provisional-rating-badge";scoreBadge.style.setProperty("--c","var(--gold)");scoreBadge.innerHTML=`${esc(provisionalScore)} <small>Provisória</small>`;badgeNode.insertBefore(scoreBadge,badgeNode.querySelector("a")||null);}
         }
-        // Recarrega o formulário a partir do cache atualizado para exibir o histórico recém-gravado.
         await loadExperience(id);
       }
       catch(err){status.textContent="Não foi possível salvar: "+(err.code||err.message)}finally{btn.disabled=false}
     });
   }catch(err){root.className="";root.innerHTML=`<div class="msg err">Não consegui carregar as informações (${esc(err.code||err.message)}).</div>`}
 }
-
 let activeDiaryAnime=null;window.activeDiaryAnime=null;window.addEventListener("diary-auth-refresh",()=>{if(activeDiaryAnime!=null){loadDiary(activeDiaryAnime);loadExperience(activeDiaryAnime)}});
 function localDateISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
 function diaryDate(value){
@@ -1159,6 +1188,29 @@ $("login").addEventListener("click",()=>{
   (fbUser?hubFB.logout():hubFB.login()).catch(err=>alert("Não foi possível entrar: "+err.code));
 });
 document.addEventListener("click",async e=>{
+  const openDefinitive=e.target.closest("[data-open-definitive]");
+  if(openDefinitive){
+    const editor=$("definitive-editor"),input=$("definitive-score");
+    if(editor&&input){
+      editor.hidden=false;input.focus();
+    }
+    return;
+  }
+  const cancelDefinitive=e.target.closest("[data-cancel-definitive]");
+  if(cancelDefinitive){const editor=$("definitive-editor");if(editor)editor.hidden=true;return;}
+  const confirmDefinitive=e.target.closest("[data-confirm-definitive]");
+  if(confirmDefinitive){
+    const input=$("definitive-score"),status=$("definitive-status"),editor=$("definitive-editor");
+    const raw=input?.value.trim()||"",score=raw===""?NaN:Number(raw);
+    if(!Number.isInteger(score)||score<0||score>100){if(status)status.textContent="Informe uma nota inteira entre 0 e 100.";input?.focus();return;}
+    confirmDefinitive.disabled=true;if(status)status.textContent="Salvando nota definitiva…";
+    try{
+      const result=await hubFB.saveDefinitiveRating(activeDiaryAnime,score);
+      if(status)status.textContent=result.changed?"Nota definitiva salva!":"Essa nota já é a nota definitiva atual; nenhuma alteração foi registrada.";
+      await loadExperience(activeDiaryAnime);
+    }catch(err){if(status)status.textContent="Não foi possível salvar: "+(err.code||err.message||"erro desconhecido");confirmDefinitive.disabled=false;}
+    return;
+  }
   const modeButton=e.target.closest("[data-dialog-mode]");
   if(modeButton){
     const dialog=$("dlg"),expanded=!dialog.classList.contains("fullscreen"),id=Number(window.activeDiaryAnime);
@@ -1296,7 +1348,7 @@ $("import-file").addEventListener("change",async e=>{
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 import {getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
-import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,onSnapshot,doc,setDoc,deleteDoc,deleteField,arrayUnion,serverTimestamp,addDoc,getDocs,getDoc,getDocFromServer,getDocsFromCache,getDocsFromServer,getDocFromCache,query,where,updateDoc,writeBatch} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
+import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,onSnapshot,doc,setDoc,deleteDoc,deleteField,arrayUnion,serverTimestamp,Timestamp,addDoc,getDocs,getDoc,getDocFromServer,getDocsFromCache,getDocsFromServer,getDocFromCache,query,where,updateDoc,writeBatch} from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
 
 const app=initializeApp({
   apiKey:"AIzaSyCgHMZV_wIFOV4QuJi3bBRbu_iOXSJ1ahY",
@@ -1307,6 +1359,7 @@ const app=initializeApp({
   appId:"1:335710840559:web:1d99e078383a9819a99d1a"
 });
 const auth=getAuth(app);
+window.hubFirebaseAuth = auth;
 const OWNER_UID=window.HUB_OWNER_UID;
 /* O cache persistente do Firestore usa IndexedDB; este cache de aplicação acrescenta TTL por tipo de dado. */
 const db=initializeFirestore(app,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
@@ -1515,6 +1568,48 @@ window.hubFB={
     await setDoc(notePath(animeId),payload,{merge:true});
     await cacheSet(noteCacheKey(animeId),updatedCache);
     await cacheDelete("stats:animeNotes");
+  },
+  saveDefinitiveRating:async(animeId,score)=>{
+    requireOwner();
+    const numericScore=Number(score);
+    if(!Number.isInteger(numericScore)||numericScore<0||numericScore>100)throw new Error("Informe uma nota definitiva inteira entre 0 e 100.");
+    const old=(await cacheGet(noteCacheKey(animeId)))?.data||{};
+    const previousScore=old.definitiveRating?.score;
+    if(previousScore!==null&&previousScore!==undefined&&Number(previousScore)===numericScore){
+      return {changed:false,score:numericScore};
+    }
+    const rawProvisional=old.provisionalScore;
+    const provisionalSnapshot=rawProvisional===null||rawProvisional===undefined||rawProvisional===""?null:Number(rawProvisional);
+    const confirmedAt=Timestamp.now();
+    const changedAt=confirmedAt.toDate().toISOString();
+    const historyEntry={score:numericScore,provisionalScoreAtConfirmation:provisionalSnapshot,changedAt:confirmedAt};
+    const payload={
+      animeId:Number(animeId),
+      definitiveRating:{
+        score:numericScore,
+        provisionalScoreAtConfirmation:provisionalSnapshot,
+        confirmedAt
+      },
+      definitiveRatingHistory:arrayUnion(historyEntry),
+      updatedAt:serverTimestamp()
+    };
+    const oldHistory=Array.isArray(old.definitiveRatingHistory)?old.definitiveRatingHistory:[];
+    const updatedCache={
+      ...old,
+      definitiveRating:{
+        score:numericScore,
+        provisionalScoreAtConfirmation:provisionalSnapshot,
+        confirmedAt:changedAt
+      },
+      definitiveRatingHistory:[
+        ...oldHistory,
+        {score:numericScore,provisionalScoreAtConfirmation:provisionalSnapshot,changedAt}
+      ]
+    };
+    await setDoc(notePath(animeId),payload,{merge:true});
+    await cacheSet(noteCacheKey(animeId),updatedCache);
+    await cacheDelete("stats:animeNotes");
+    return {changed:true,score:numericScore,provisionalScoreAtConfirmation:provisionalSnapshot,confirmedAt:changedAt};
   },
   saveThemeComment:async(animeId,slug,comment)=>{requireOwner();await setDoc(notePath(animeId),{animeId:Number(animeId),themeComments:{[slug]:comment},updatedAt:serverTimestamp()},{merge:true});const old=(await cacheGet(noteCacheKey(animeId)))?.data||{};await cacheSet(noteCacheKey(animeId),{...old,themeComments:{...(old.themeComments||{}),[slug]:comment}});await cacheDelete("stats:animeNotes");},
   associateProvisionalTheme:async(animeId,kind,targetSlug)=>{
