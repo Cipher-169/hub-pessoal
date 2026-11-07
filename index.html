@@ -391,6 +391,30 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 .sync-actions button:disabled{opacity:.55;cursor:wait}
 /* ============ FIM DO DIÁRIO ============ */
 
+.bar input[type="search"] {
+  flex: 1;
+  min-width: 200px;
+  background: #151d30 !important;
+  border: 1px solid rgba(164,178,211,.18) !important;
+  border-radius: 9px !important;
+  color: #e2e8f0 !important;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color .2s, background .2s, box-shadow .2s;
+}
+
+.bar input[type="search"]:focus {
+  border-color: #4f46e5 !important;
+  background: #1a233a !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+.bar input[type="search"]::placeholder {
+  color: #64748b;
+}
+
 /* ============ FIM DA REPAGINAÇÃO VISUAL ============ */
 
 </style>
