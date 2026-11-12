@@ -95,7 +95,7 @@ As permissões efetivas de leitura e escrita também dependem das regras de segu
 
 ## 📌 Projeto relacionado
 
-- **Hub de Filmes & Séries:** projeto pessoal para organizar e acompanhar filmes e séries.
+- **Hub de Filmes & Séries:** [https://github.com/Cipher-169/hub-series-filmes](https://github.com/Cipher-169/hub-series-filmes)
 
 ---
 
