@@ -4,7 +4,7 @@
 
 **Sua biblioteca pessoal para organizar, acompanhar e registrar suas experiências com animes.**
 
-🔗 **[Acessar o projeto](https://cipher-169.github.io/hub-pessoal/)**
+🔗 **[Acessar o site](https://cipher-169.github.io/hub-pessoal/)**
 
 ![Status](https://img.shields.io/badge/status-em%20desenvolvimento-ff916b?style=for-the-badge)
 ![AniList](https://img.shields.io/badge/integração-AniList-02A9FF?style=for-the-badge&logo=anilist&logoColor=white)
