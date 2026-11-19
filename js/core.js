@@ -2,7 +2,7 @@
    CONTROLE DE VERSÃO:
    Sempre que modificar este arquivo incremente HUB_VERSION em +1.
    ===================================================================== */
-const HUB_VERSION = 23;
+const HUB_VERSION = 24;
 window.HUB_VERSION = HUB_VERSION;
 document.getElementById("project-version").textContent = `v${HUB_VERSION}`;
 
@@ -75,7 +75,7 @@ async function fetchThemes(id){
       id slug
       animethemes(first:100){
         slug type
-        song{title{romaji english native} performances{artist{name}}}
+        song{title{romaji native} performances{artist{name{main native}}}}
         animethemeentries(first:100){episodes videos(first:100){nodes{link resolution}}}
       }
     }
@@ -94,8 +94,8 @@ async function fetchThemes(id){
     const entry=entries.find(e=>e.videos?.nodes?.length)||entries[0];
     const videos=(entry?.videos?.nodes||[]).filter(v=>v.link).sort((a,b)=>(b.resolution||0)-(a.resolution||0));
     const songTitle=t.song?.title;
-    const title=typeof songTitle==="string"?songTitle:(songTitle?.english||songTitle?.romaji||songTitle?.native||"(sem título)");
-    const artists=(t.song?.performances||[]).map(p=>p.artist?.name).filter(Boolean);
+    const title=typeof songTitle==="string"?songTitle:(songTitle?.romaji||songTitle?.native||"(sem título)");
+    const artists=(t.song?.performances||[]).map(p=>p.artist?.name?.main||p.artist?.name?.native).filter(Boolean);
     return {slug:t.slug,type:t.type,title,artist:artists.join(", "),eps:entry?.episodes||"",video:videos[0]?.link};
   });
   // Não guardar respostas vazias: uma falha/retorno transitório não deve virar cache permanente nesta sessão.
