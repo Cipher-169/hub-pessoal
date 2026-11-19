@@ -478,3 +478,87 @@ dialog{border-color:rgba(164,178,211,.22);box-shadow:0 28px 90px rgba(0,0,0,.55)
 /* ============ FIM DO DIÁRIO ============ */
 
 /* ============ FIM DA REPAGINAÇÃO VISUAL ============ */
+
+
+/* ============ NEXUS REDESIGN — FOUNDATION 01 ============ */
+:root{
+  --bg:#080b14;
+  --panel:#111827;
+  --line:rgba(165,181,211,.14);
+  --text:#f3f5fa;
+  --muted:#9ca9c2;
+  --sun:#ff876b;
+  --gold:#e9c477;
+  --surface:rgba(17,24,39,.78);
+  --surface-soft:rgba(255,255,255,.035);
+  --serif:'Fraunces',Georgia,serif;
+  --sans:'Instrument Sans',system-ui,sans-serif;
+}
+body{
+  background:
+    radial-gradient(ellipse at 78% 5%,rgba(105,73,128,.14),transparent 34rem),
+    radial-gradient(ellipse at 12% 44%,rgba(43,94,119,.10),transparent 28rem),
+    var(--bg);
+}
+.hero{min-height:clamp(450px,64vh,680px);background-color:#111827}
+.hero::before{
+  background:
+    linear-gradient(0deg,var(--bg) 0%,rgba(8,11,20,.78) 9%,rgba(8,11,20,.04) 62%),
+    linear-gradient(90deg,rgba(6,9,17,.91) 0%,rgba(6,9,17,.57) 38%,rgba(6,9,17,.05) 78%),
+    linear-gradient(180deg,rgba(6,9,17,.38),transparent 32%);
+}
+.top{padding:22px clamp(18px,4.5vw,72px)}
+.brand{font-size:1.42rem;letter-spacing:-.045em}
+.brand-name{color:var(--text)}
+.brand-hub{color:var(--sun);font-size:.82em;letter-spacing:.08em}
+.anilist-profile-link{border-color:rgba(255,135,107,.42);background:rgba(8,11,20,.5)}
+.anilist-profile-link:hover{background:rgba(255,135,107,.12)}
+.hero-in{max-width:960px;padding:0 clamp(18px,4.5vw,72px) 56px}
+.hero-in h1{font-size:clamp(2.7rem,6.4vw,6rem);letter-spacing:-.055em;line-height:.96}
+.hero-in p{max-width:720px;color:#d5dced}
+.wrap{max-width:1440px;padding-inline:clamp(18px,4.5vw,72px)}
+#sub{border-color:rgba(165,181,211,.14);background:rgba(17,24,39,.62)}
+.sync-tools{padding:4px 0 12px}
+.sync-status{line-height:1.45}
+.sync-actions button,.anilist-connect-actions button,.stats-head button,.stats-refresh{
+  transition:background .2s,border-color .2s,transform .2s;
+}
+.sync-actions button:hover,.anilist-connect-actions button:hover,.stats-head button:hover,.stats-refresh:hover{border-color:rgba(255,135,107,.55);transform:translateY(-1px)}
+.anilist-connect{border-color:rgba(165,181,211,.13);background:linear-gradient(115deg,rgba(17,24,39,.82),rgba(17,24,39,.48));box-shadow:0 12px 30px rgba(0,0,0,.12)}
+.tabs{border-color:rgba(165,181,211,.12);background:rgba(8,11,20,.84);box-shadow:0 14px 34px rgba(0,0,0,.22)}
+.tabs button[aria-selected=true]{background:rgba(255,135,107,.10)}
+.tabs button[aria-selected=true]::after{background:linear-gradient(90deg,var(--sun),#f0c477)}
+h2{font-size:clamp(1.45rem,2vw,1.8rem);letter-spacing:-.035em}
+.grid{gap:clamp(12px,1.7vw,22px)}
+.poster{background:#121a2a;border-color:rgba(255,255,255,.075)}
+.poster .cap{background:linear-gradient(0deg,rgba(4,6,13,.98),rgba(4,6,13,.7) 48%,transparent)}
+.poster:hover{border-color:rgba(255,135,107,.52)}
+.wide,.cell,.row,.stats-panel,.stat-card,.ranking-item,.theme,.diary-entry,.experience-form{
+  border-color:rgba(165,181,211,.13);
+}
+.wide,.row,.ranking-item{background-color:#111827}
+.wide::before{background:linear-gradient(90deg,rgba(6,9,17,.96) 20%,rgba(6,9,17,.74) 58%,rgba(6,9,17,.24))}
+.bar,.ranking-tools{background:rgba(17,24,39,.56)}
+.bar select,.bar input[type="search"],.ranking-tools select,.ranking-tools input{
+  background:#111a2b;border-color:rgba(165,181,211,.16)
+}
+.go,.diary-form button,.experience-form button,.theme-comment-save,.import-preview-actions button.primary,.anilist-connect-actions button.primary{
+  background:linear-gradient(135deg,#ff9474,#ff8068);box-shadow:0 7px 24px rgba(255,135,107,.12)
+}
+.go:hover,.diary-form button:hover,.experience-form button:hover,.theme-comment-save:hover,.import-preview-actions button.primary:hover,.anilist-connect-actions button.primary:hover{filter:brightness(1.06)}
+.dialog,dialog{border-color:rgba(165,181,211,.16)}
+.detail-tabs{background:rgba(255,255,255,.025)}
+.detail-tabs button[aria-selected=true]{background:rgba(255,135,107,.12)}
+@media(max-width:760px){
+  .hero{min-height:490px}
+  .top{padding:18px clamp(16px,4vw,28px)}
+  .hero-in{padding-bottom:40px}
+  .wrap{padding-inline:clamp(15px,4vw,24px)}
+}
+@media(max-width:520px){
+  .brand{font-size:1.25rem}
+  .anilist-profile-link{margin-left:8px;padding:6px 9px;font-size:.76rem}
+  .hero{min-height:520px}
+  .hero-in h1{letter-spacing:-.045em}
+}
+/* ============ END FOUNDATION 01 ============ */
