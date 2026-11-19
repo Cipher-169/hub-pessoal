@@ -2,7 +2,7 @@
    CONTROLE DE VERSÃO:
    Sempre que modificar este arquivo incremente HUB_VERSION em +1.
    ===================================================================== */
-const HUB_VERSION = 24;
+const HUB_VERSION = 25;
 window.HUB_VERSION = HUB_VERSION;
 document.getElementById("project-version").textContent = `v${HUB_VERSION}`;
 
@@ -87,9 +87,9 @@ async function fetchThemes(id){
   if(!r.ok)throw new Error(`AnimeThemes GraphQL HTTP ${r.status}`);
   const j=await r.json();
   if(j?.errors?.length)throw new Error(j.errors.map(e=>e.message).filter(Boolean).join("; ")||"Erro GraphQL AnimeThemes");
-  const anime=j?.data?.findAnimeByExternalSite;
-  if(!anime) return [];
-  const th=(anime.animethemes||[]).map(t=>{
+  const animeList=j?.data?.findAnimeByExternalSite;
+  if(!Array.isArray(animeList)||!animeList.length) return [];
+  const th=animeList.flatMap(anime=>(anime?.animethemes||[]).map(t=>{
     const entries=t.animethemeentries||[];
     const entry=entries.find(e=>e.videos?.nodes?.length)||entries[0];
     const videos=(entry?.videos?.nodes||[]).filter(v=>v.link).sort((a,b)=>(b.resolution||0)-(a.resolution||0));
@@ -97,7 +97,7 @@ async function fetchThemes(id){
     const title=typeof songTitle==="string"?songTitle:(songTitle?.romaji||songTitle?.native||"(sem título)");
     const artists=(t.song?.performances||[]).map(p=>p.artist?.name?.main||p.artist?.name?.native).filter(Boolean);
     return {slug:t.slug,type:t.type,title,artist:artists.join(", "),eps:entry?.episodes||"",video:videos[0]?.link};
-  });
+  }));
   // Não guardar respostas vazias: uma falha/retorno transitório não deve virar cache permanente nesta sessão.
   if(th.length)themeCache.set(id,th);
   return th;
