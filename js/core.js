@@ -2,7 +2,7 @@
    CONTROLE DE VERSÃO:
    Sempre que modificar este arquivo incremente HUB_VERSION em +1.
    ===================================================================== */
-const HUB_VERSION = 22;
+const HUB_VERSION = 23;
 window.HUB_VERSION = HUB_VERSION;
 document.getElementById("project-version").textContent = `v${HUB_VERSION}`;
 
@@ -75,8 +75,8 @@ async function fetchThemes(id){
       id slug
       animethemes(first:100){
         slug type
-        song{title performances{artist{nameMain}}}
-        animethemeentries(first:100){episodes videos(first:100){link resolution}}
+        song{title{romaji english native} performances{artist{name}}}
+        animethemeentries(first:100){episodes videos(first:100){nodes{link resolution}}}
       }
     }
   }`;
@@ -86,15 +86,17 @@ async function fetchThemes(id){
   });
   if(!r.ok)throw new Error(`AnimeThemes GraphQL HTTP ${r.status}`);
   const j=await r.json();
-  if(j?.errors?.length)throw new Error(j.errors[0].message||"Erro GraphQL AnimeThemes");
+  if(j?.errors?.length)throw new Error(j.errors.map(e=>e.message).filter(Boolean).join("; ")||"Erro GraphQL AnimeThemes");
   const anime=j?.data?.findAnimeByExternalSite;
   if(!anime) return [];
   const th=(anime.animethemes||[]).map(t=>{
     const entries=t.animethemeentries||[];
-    const entry=entries.find(e=>e.videos?.length)||entries[0];
-    const videos=(entry?.videos||[]).filter(v=>v.link).sort((a,b)=>(b.resolution||0)-(a.resolution||0));
-    const artists=(t.song?.performances||[]).map(p=>p.artist?.nameMain).filter(Boolean);
-    return {slug:t.slug,type:t.type,title:t.song?.title||"(sem título)",artist:artists.join(", "),eps:entry?.episodes||"",video:videos[0]?.link};
+    const entry=entries.find(e=>e.videos?.nodes?.length)||entries[0];
+    const videos=(entry?.videos?.nodes||[]).filter(v=>v.link).sort((a,b)=>(b.resolution||0)-(a.resolution||0));
+    const songTitle=t.song?.title;
+    const title=typeof songTitle==="string"?songTitle:(songTitle?.english||songTitle?.romaji||songTitle?.native||"(sem título)");
+    const artists=(t.song?.performances||[]).map(p=>p.artist?.name).filter(Boolean);
+    return {slug:t.slug,type:t.type,title,artist:artists.join(", "),eps:entry?.episodes||"",video:videos[0]?.link};
   });
   // Não guardar respostas vazias: uma falha/retorno transitório não deve virar cache permanente nesta sessão.
   if(th.length)themeCache.set(id,th);
