@@ -178,6 +178,32 @@ $("login").addEventListener("click",()=>{
   (fbUser?hubFB.logout():hubFB.login()).catch(err=>alert("Não foi possível entrar: "+err.code));
 });
 document.addEventListener("click",async e=>{
+  const calendarPickerMenus=document.querySelectorAll("#diary-calendar .calendar-picker-menu");
+  if(!e.target.closest(".calendar-picker"))calendarPickerMenus.forEach(m=>m.classList.add("hidden"));
+  const languageTrigger=e.target.closest("#language-trigger");
+  if(languageTrigger){const menu=$("language-menu"),open=menu.classList.contains("hidden");menu.classList.toggle("hidden",!open);languageTrigger.setAttribute("aria-expanded",String(open));return;}
+  const languageChoice=e.target.closest("[data-language-value]");
+  if(languageChoice){const value=languageChoice.dataset.languageValue,labels={"":"Não informado",sub:"Legendado",dub:"Dublado",other:"Outro"};$("watch-language").value=value;$("language-label").textContent=labels[value];document.querySelectorAll("#language-menu [data-language-value]").forEach(option=>option.setAttribute("aria-selected",String(option===languageChoice)));$("language-menu").classList.add("hidden");$("language-trigger").setAttribute("aria-expanded","false");return;}
+  const scoreStep=e.target.closest("[data-score-step]");
+  if(scoreStep){const input=$("provisional-score");if(input){const current=input.value.trim()===""?0:Number(input.value),next=Math.max(0,Math.min(100,(Number.isFinite(current)?current:0)+Number(scoreStep.dataset.scoreStep)));input.value=String(next);}return;}
+  const episodeStep=e.target.closest("[data-episode-step]");
+  if(episodeStep){const input=$("diary-episode");if(input){const current=Number(input.value)||0;input.value=String(Math.max(0,current+Number(episodeStep.dataset.episodeStep)));}return;}
+  const monthTrigger=e.target.closest("[data-calendar-month-trigger]"),yearTrigger=e.target.closest("[data-calendar-year-trigger]");
+  if(monthTrigger||yearTrigger){const cal=$("diary-calendar"),monthMenu=cal.querySelector("[data-calendar-month-menu]"),yearMenu=cal.querySelector("[data-calendar-year-menu]"),trigger=monthTrigger||yearTrigger,menu=monthTrigger?monthMenu:yearMenu,open=menu.classList.contains("hidden");monthMenu.classList.add("hidden");yearMenu.classList.add("hidden");cal.querySelectorAll("[data-calendar-month-trigger],[data-calendar-year-trigger]").forEach(t=>t.setAttribute("aria-expanded","false"));menu.classList.toggle("hidden",!open);trigger.setAttribute("aria-expanded",String(open));if(open&&yearTrigger){const active=yearMenu.querySelector(".active");if(active)active.scrollIntoView({block:"center"});}return;}
+  const monthChoice=e.target.closest("[data-calendar-month]");
+  if(monthChoice){renderDiaryCalendar($("diary-date").value,Number(monthChoice.dataset.calendarMonth),Number($("diary-calendar").dataset.viewYear));return;}
+  const yearChoice=e.target.closest("[data-calendar-year]");
+  if(yearChoice){renderDiaryCalendar($("diary-date").value,Number($("diary-calendar").dataset.viewMonth),Number(yearChoice.dataset.calendarYear));return;}
+  const dateTrigger=e.target.closest("#diary-date-trigger");
+  if(dateTrigger){const cal=$("diary-calendar"),open=cal.classList.contains("hidden");cal.classList.toggle("hidden",!open);dateTrigger.setAttribute("aria-expanded",String(open));return;}
+  const forgotten=e.target.closest("#diary-forgot");
+  if(forgotten){const pressed=forgotten.getAttribute("aria-pressed")!=="true",dateTrigger=$("diary-date-trigger");forgotten.setAttribute("aria-pressed",String(pressed));forgotten.classList.toggle("active",pressed);$("diary-date").disabled=pressed;dateTrigger.disabled=pressed;if(pressed){dateTrigger.classList.add("date-forgotten");dateTrigger.querySelector("#diary-date-label").textContent="Data não informada";$ ("diary-calendar").classList.add("hidden");dateTrigger.setAttribute("aria-expanded","false");}else{dateTrigger.classList.remove("date-forgotten");$("diary-date").value=localDateISO();dateTrigger.querySelector("#diary-date-label").textContent=new Date(localDateISO()+"T12:00:00").toLocaleDateString("pt-BR");}return;}
+  const day=e.target.closest("[data-calendar-date]");
+  if(day){const date=day.dataset.calendarDate;$("diary-date").value=date;$("diary-date-label").textContent=new Date(date+"T12:00:00").toLocaleDateString("pt-BR");$("diary-calendar").classList.add("hidden");$("diary-date-trigger").setAttribute("aria-expanded","false");return;}
+  const nav=e.target.closest("[data-calendar-nav]");
+  if(nav){let month=Number($("diary-calendar").dataset.viewMonth),year=Number($("diary-calendar").dataset.viewYear);const d=new Date(year,month+Number(nav.dataset.calendarNav),1);renderDiaryCalendar($("diary-date").value,d.getMonth(),d.getFullYear());return;}
+  const today=e.target.closest("[data-calendar-today]");
+  if(today){const value=localDateISO();$("diary-date").value=value;$("diary-date-label").textContent=new Date(value+"T12:00:00").toLocaleDateString("pt-BR");$("diary-calendar").classList.add("hidden");$("diary-date-trigger").setAttribute("aria-expanded","false");return;}
   const openDefinitive=e.target.closest("[data-open-definitive]");
   if(openDefinitive){
     const editor=$("definitive-editor"),input=$("definitive-score");
@@ -233,6 +259,7 @@ document.addEventListener("click",async e=>{
   if(refreshAnime){const id=Number(refreshAnime.dataset.refreshAnime);if(Number.isFinite(id))await refreshOpenAnimeData(id,refreshAnime);return;}
   const associate=e.target.closest("[data-associate-provisional]");
   if(associate){
+    if(!fbUser){alert("Entre com sua conta para associar avaliações.");return;}
     const kind=associate.dataset.associateProvisional,select=document.getElementById(`associate-${kind}`),status=document.getElementById(`associate-status-${kind}`),targetSlug=select?.value;
     if(!targetSlug){if(status)status.textContent="Escolha uma música primeiro.";return;}
     associate.disabled=true;if(status)status.textContent="Associando…";
@@ -241,7 +268,7 @@ document.addEventListener("click",async e=>{
     return;
   }
   const saveTheme=e.target.closest("[data-save-theme-comment]");
-  if(saveTheme){const slug=saveTheme.dataset.saveThemeComment,key=`${activeDiaryAnime}:${slug}`,field=document.getElementById(`tc-${key}`),status=document.getElementById(`tcs-${key}`);saveTheme.disabled=true;status.textContent="Salvando…";try{await hubFB.saveThemeComment(activeDiaryAnime,slug,field.value.trim());status.textContent="Salvo!"}catch(err){status.textContent="Erro: "+(err.code||err.message)}finally{saveTheme.disabled=false}return;}
+  if(saveTheme){if(!fbUser){alert("Entre com sua conta para salvar comentários.");return;}const slug=saveTheme.dataset.saveThemeComment,key=`${activeDiaryAnime}:${slug}`,field=document.getElementById(`tc-${key}`),status=document.getElementById(`tcs-${key}`);saveTheme.disabled=true;status.textContent="Salvando…";try{await hubFB.saveThemeComment(activeDiaryAnime,slug,field.value.trim());status.textContent="Salvo!"}catch(err){status.textContent="Erro: "+(err.code||err.message)}finally{saveTheme.disabled=false}return;}
   const edit=e.target.closest("[data-edit-log]");
   if(edit){const id=activeDiaryAnime,logId=edit.dataset.editLog;try{const logs=await hubFB.getLogs(id),log=logs.find(x=>x.id===logId);if(!log)return;
     const entry=edit.closest(".diary-entry");entry.innerHTML=`<form class="diary-form" data-edit-form="${esc(logId)}"><div><label>Episódio</label><input name="episode" type="number" min="0" step="1" value="${Number(log.episode)||0}" required></div><div><label>Data</label><input name="watchedAt" type="date" value="${esc(log.watchedAt||"")}" ${log.watchedAt?"":"disabled"}><label style="display:flex;align-items:center;gap:7px;margin-top:8px"><input name="dateForgotten" type="checkbox" style="width:auto" ${log.watchedAt?"":"checked"}> Esqueci a data</label></div><div class="wide-field"><label>Comentário</label><textarea name="comment" required>${esc(log.comment)}</textarea></div><button type="submit">Salvar edição</button><button type="button" data-cancel-edit>Cancelar</button></form>`;
@@ -251,6 +278,7 @@ document.addEventListener("click",async e=>{
   const cancel=e.target.closest("[data-cancel-edit]");if(cancel){loadDiary(activeDiaryAnime);return;}
   const sv=e.target.closest("[data-save]");
   if(sv){
+    if(!fbUser){alert("Entre com sua conta para salvar avaliações.");return;}
     const key=sv.dataset.save,v=document.getElementById("sc-"+key).value.trim().replace(",","."),st=document.getElementById("st-"+key);
     try{
       if(v===""){await hubFB.remove(key);delete SONG_SCORES[key];st.textContent="nota removida";return}
@@ -266,6 +294,10 @@ document.addEventListener("click",async e=>{
     render();$("sub").scrollIntoView({behavior:"smooth"});return}
 const b=e.target.closest("[data-id]");if(b&&!$("dlg").contains(b))openAnime(+b.dataset.id);
   const c=e.target.closest("[data-copy]");if(c){navigator.clipboard?.writeText(c.dataset.copy);c.textContent="Copiado"}});
+$("dlg").addEventListener("click",(e)=>{
+  // Clicking the dialog backdrop closes the anime pop-out; clicks inside remain untouched.
+  if(e.target === $("dlg")) $("dlg").close();
+});
 $("dlg").addEventListener("close",()=>{
   const dialog=$("dlg"),id=Number(window.activeDiaryAnime);
   dialog.classList.remove("fullscreen");

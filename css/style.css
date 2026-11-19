@@ -796,3 +796,412 @@ dialog{border-radius:20px;border-color:rgba(176,190,218,.18);background:#0b101b}
   #dlg.fullscreen .dh{min-height:150px;padding:16px 14px 14px}
   #dlg.fullscreen .db{padding:10px 10px 24px}
 }
+
+/* Stage 2 — OP/ED music library: compact selector + one active player */
+#dlg .theme-library{display:grid;grid-template-columns:minmax(220px,30%) minmax(0,1fr);gap:14px;align-items:start}
+#dlg .theme-library-controls{grid-column:1;display:flex;gap:6px;padding:5px;background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:12px}
+#dlg .theme-filter{flex:1;border:0;background:transparent;color:var(--muted);border-radius:9px;padding:9px 8px;font:inherit;font-size:.88rem;cursor:pointer}
+#dlg .theme-filter span{opacity:.72;font-size:.78em;margin-left:3px}
+#dlg .theme-filter.active{background:rgba(255,145,107,.14);color:var(--text)}
+#dlg .theme-track-list{grid-column:1;display:flex;flex-direction:column;gap:6px;max-height:min(56vh,560px);overflow:auto;padding-right:3px;scrollbar-width:thin}
+#dlg .theme-track{width:100%;display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:9px;align-items:center;text-align:left;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.025);color:var(--text);padding:10px;cursor:pointer;transition:border-color .16s,background .16s,transform .16s}
+#dlg .theme-track:hover{background:rgba(255,255,255,.055);transform:translateY(-1px)}
+#dlg .theme-track.active{border-color:rgba(255,145,107,.48);background:rgba(255,145,107,.09)}
+#dlg .theme-track-code{font-size:.75rem;font-weight:800;color:var(--muted);background:rgba(255,255,255,.055);padding:5px 7px;border-radius:7px;text-align:center}
+#dlg .theme-track-info{min-width:0;display:flex;flex-direction:column;gap:3px}
+#dlg .theme-track-info b{font-size:.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#dlg .theme-track-info small{color:var(--muted);font-size:.76rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#dlg .theme-track-score{font-size:.8rem;color:var(--sun);font-weight:700}
+#dlg .theme-active-player{grid-column:2;grid-row:1 / span 2;min-width:0}
+#dlg .theme-selected{margin:0;padding:15px}
+#dlg .theme-selected-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:10px}
+#dlg .theme-public-comment{margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.025)}
+#dlg .theme-public-comment p{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55}
+#dlg .theme-selected-head h3{font:600 1.2rem var(--serif);margin:7px 0 4px;overflow-wrap:anywhere}
+#dlg .theme-selected video{width:100%;max-height:clamp(180px,38vh,420px);aspect-ratio:16/9;object-fit:contain;background:#05070b;border-radius:10px}
+#dlg .theme-video-placeholder{height:clamp(150px,30vh,280px);display:grid;place-items:center;background:linear-gradient(145deg,#101724,#080b11);border:1px solid var(--line);border-radius:10px;color:var(--muted);text-align:center;padding:16px}
+#dlg .theme-rating-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px}
+#dlg .theme-rating-row label{font-size:.83rem;color:var(--muted)}
+#dlg .theme-rating-row input{width:86px;max-width:100%;background:#0c1220;border:1px solid var(--line);border-radius:9px;padding:9px;color:var(--text);font:inherit}
+#dlg .theme-provisional-form{margin-top:12px}
+#dlg .theme-associate-select{width:100%;background:#0c1220;border:1px solid var(--line);border-radius:9px;padding:9px;color:var(--text);margin:8px 0}
+#dlg .theme-offline-note{margin-bottom:12px}
+@media(max-width:760px){
+  #dlg .theme-library{grid-template-columns:minmax(0,1fr);gap:10px}
+  #dlg .theme-library-controls,#dlg .theme-track-list,#dlg .theme-active-player{grid-column:1;grid-row:auto}
+  #dlg .theme-track-list{max-height:220px}
+  #dlg .theme-selected{padding:12px}
+  #dlg .theme-selected video{max-height:240px}
+}
+
+/* Refinamentos pontuais — hover dos cards e navegação sticky do modal */
+#dlg .theme-track-list{padding-top:4px;}
+#dlg .theme-track:hover{transform:none;}
+#dlg .detail-tabs{
+  background:rgba(10,14,23,.97);
+  backdrop-filter:blur(10px);
+  box-shadow:0 5px 12px rgba(0,0,0,.16);
+  border-bottom-color:rgba(165,181,211,.16);
+}
+/* Custom diary date picker and forgotten-date toggle */
+.diary-date-field{position:relative;min-width:0}
+.diary-date-trigger{display:flex!important;align-items:center;gap:10px;width:100%;justify-self:stretch!important;text-align:left;background:#0c1220!important;color:var(--text)!important;border:1px solid var(--line)!important;border-radius:10px!important;padding:10px 12px!important;min-height:43px;font-weight:500!important}
+.diary-date-icon{color:var(--sun);font-size:1.05rem}
+.diary-date-caret{margin-left:auto;color:var(--muted);transition:transform .18s}
+.diary-date-trigger[aria-expanded="true"] .diary-date-caret{transform:rotate(180deg)}
+.diary-date-trigger.date-forgotten{color:var(--muted)!important;border-style:dashed!important}
+.diary-date-trigger:disabled{opacity:.65;cursor:not-allowed}
+.diary-forgot{display:flex!important;align-items:center;gap:9px;margin-top:9px!important;padding:7px 10px!important;background:transparent!important;border:1px solid var(--line)!important;border-radius:9px!important;color:var(--muted)!important;font-size:.82rem!important;font-weight:500!important;transition:all .18s}
+.diary-forgot:hover{border-color:rgba(255,137,108,.45)!important;color:var(--text)!important}
+.diary-forgot-mark{width:15px;height:15px;border:1px solid #657087;border-radius:4px;display:grid;place-items:center;flex:0 0 15px}
+.diary-forgot.active{border-color:rgba(255,137,108,.5)!important;background:rgba(255,137,108,.08)!important;color:var(--text)!important}
+.diary-forgot.active .diary-forgot-mark{background:var(--sun);border-color:var(--sun)}
+.diary-forgot.active .diary-forgot-mark:after{content:"✓";font-size:11px;color:#171923;font-weight:800}
+.diary-calendar{position:absolute;z-index:30;top:calc(100% + 7px);left:0;width:min(320px,100%);padding:12px;border:1px solid rgba(170,185,215,.18);border-radius:14px;background:linear-gradient(145deg,#172033,#101624);box-shadow:0 18px 45px rgba(0,0,0,.42)}
+.diary-calendar.hidden{display:none!important}
+.calendar-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.calendar-head strong{text-transform:capitalize;font-size:.95rem;font-weight:650}.calendar-head strong span{color:var(--muted);font-weight:500}
+.calendar-head button{width:32px;height:32px;border:1px solid var(--line);border-radius:9px;background:rgba(255,255,255,.035);color:var(--text);font-size:1.25rem;line-height:1}
+.calendar-head button:hover{border-color:var(--sun);background:rgba(255,145,107,.08)}
+.calendar-weekdays,.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.calendar-weekdays{margin-bottom:5px}.calendar-weekdays span{text-align:center;font-size:.72rem;color:var(--muted);padding:4px 0}
+.calendar-day{aspect-ratio:1;display:grid;place-items:center;border:1px solid transparent!important;border-radius:8px!important;background:transparent!important;color:var(--text)!important;padding:0!important;font-size:.82rem!important;font-weight:500!important;justify-self:stretch!important}
+.calendar-day:hover{background:rgba(255,145,107,.1)!important;border-color:rgba(255,145,107,.25)!important}
+.calendar-day.other-month{color:#68748a!important;opacity:.5}
+.calendar-day.today{border-color:rgba(255,145,107,.35)!important}
+.calendar-day.selected{background:var(--sun)!important;color:#171923!important;font-weight:750!important;border-color:var(--sun)!important}
+.calendar-foot{display:flex;justify-content:flex-end;border-top:1px solid var(--line);margin-top:9px;padding-top:8px}
+.calendar-foot button{background:transparent!important;color:var(--sun)!important;border:0!important;padding:4px 8px!important;font-size:.8rem!important}
+
+/* Refined experience controls: custom steppers, platform chips and select */
+.score-control,.episode-control{display:flex;align-items:stretch;gap:7px;min-width:0}
+.score-control input,.episode-control input{appearance:textfield;-moz-appearance:textfield;min-width:0;flex:1}
+.score-control input::-webkit-inner-spin-button,.score-control input::-webkit-outer-spin-button,.episode-control input::-webkit-inner-spin-button,.episode-control input::-webkit-outer-spin-button{appearance:none;margin:0}
+.score-step,.episode-stepper button{display:grid;place-items:center;background:#151e30!important;color:var(--text)!important;border:1px solid var(--line)!important;border-radius:9px!important;min-width:40px;padding:6px 12px!important;font-size:1.1rem!important;font-weight:650!important;transition:background .15s,border-color .15s}
+.score-step:hover,.episode-stepper button:hover{border-color:var(--sun)!important;background:rgba(242,196,109,.1)!important}
+.save-score-button{background:transparent!important;color:var(--text)!important;border:1px solid var(--line)!important;border-radius:9px!important;padding:8px 12px!important;font-size:.85rem!important}
+.save-score-button:hover{border-color:var(--sun)!important}
+.select-wrap{position:relative}
+.select-wrap select{appearance:none;-webkit-appearance:none;padding-right:40px!important;cursor:pointer}
+.select-wrap:after{content:"⌄";position:absolute;right:14px;bottom:11px;color:var(--muted);pointer-events:none;font-size:1rem}
+.platform-option{gap:8px!important}
+.platform-option input{position:absolute!important;opacity:0!important;width:1px!important;height:1px!important;overflow:hidden!important}
+.platform-check{width:17px;height:17px;border:1px solid #68748b;border-radius:5px;display:grid;place-items:center;flex:0 0 17px;transition:all .15s}
+.platform-option:has(input:checked) .platform-check{background:var(--sun);border-color:var(--sun)}
+.platform-option:has(input:checked) .platform-check:after{content:"✓";font-size:11px;color:#171923;font-weight:800}
+.episode-control{position:relative}
+.episode-control input{padding-right:46px!important;appearance:textfield;-moz-appearance:textfield}
+.episode-control input::-webkit-inner-spin-button,.episode-control input::-webkit-outer-spin-button{appearance:none;margin:0}
+.episode-stepper{position:absolute;right:5px;top:5px;bottom:5px;display:flex;flex-direction:column;gap:2px}
+.episode-stepper button{min-width:26px;width:26px;padding:0!important;border-radius:6px!important;font-size:.75rem!important;line-height:1}
+@media(max-width:480px){.score-step{min-width:36px;padding:5px 9px!important}.episode-stepper button{min-width:24px;width:24px}}
+
+/* Polished custom language selector and calendar month/year jump */
+.language-picker{position:relative;display:flex;flex-direction:column;gap:6px}
+.language-trigger{display:flex!important;align-items:center;justify-content:space-between;width:100%;min-height:43px;padding:10px 13px!important;border:1px solid var(--line)!important;border-radius:10px!important;background:#0c1220!important;color:var(--text)!important;text-align:left;font-weight:500!important}
+.language-trigger:hover,.language-trigger[aria-expanded="true"]{border-color:rgba(255,145,107,.55)!important;background:rgba(255,145,107,.045)!important}
+.language-chevron{color:var(--muted);transition:transform .16s}.language-trigger[aria-expanded="true"] .language-chevron{transform:rotate(180deg)}
+.language-menu{position:absolute;z-index:40;top:calc(100% + 6px);left:0;right:0;padding:5px;border:1px solid rgba(170,185,215,.18);border-radius:12px;background:linear-gradient(145deg,#172033,#101624);box-shadow:0 16px 36px rgba(0,0,0,.38);display:flex;flex-direction:column;gap:3px}
+.language-menu.hidden{display:none!important}
+.language-menu button{display:flex!important;align-items:center;width:100%;padding:10px 11px!important;border:1px solid transparent!important;border-radius:8px!important;background:transparent!important;color:var(--text)!important;text-align:left!important;font-size:.9rem!important}
+.language-menu button:hover{border-color:rgba(255,145,107,.28)!important;background:rgba(255,145,107,.09)!important}
+.calendar-title-trigger{display:flex!important;align-items:center;justify-content:center;gap:7px;flex:1!important;width:auto!important;border:0!important;background:transparent!important;padding:2px 6px!important}
+.calendar-title-trigger strong{text-transform:capitalize;font-size:.95rem;font-weight:650}.calendar-title-trigger strong span{color:var(--muted);font-weight:500}.calendar-title-trigger i{font-style:normal;color:var(--muted);font-size:.85rem;transition:transform .15s}.calendar-title-trigger[aria-expanded="true"] i{transform:rotate(180deg)}
+.calendar-jump{padding:9px;margin:0 0 10px;border:1px solid rgba(170,185,215,.14);border-radius:10px;background:rgba(7,11,20,.36)}.calendar-jump.hidden{display:none!important}
+.calendar-year-row{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:9px}.calendar-year-row strong{font-size:1rem;font-weight:700;min-width:48px;text-align:center}.calendar-year-row button{width:29px;height:29px;border:1px solid var(--line);border-radius:8px;background:#151e30;color:var(--text);font-size:1.05rem}.calendar-year-row button:hover{border-color:var(--sun);background:rgba(255,145,107,.09)}
+.calendar-months{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}.calendar-months button{padding:7px 4px;border:1px solid transparent;border-radius:7px;background:rgba(255,255,255,.025);color:var(--text);font-size:.78rem;text-transform:capitalize}.calendar-months button:hover{border-color:rgba(255,145,107,.3);background:rgba(255,145,107,.08)}.calendar-months button.active{border-color:var(--sun);background:rgba(255,145,107,.14);color:var(--sun);font-weight:700}
+
+/* Final polish — centered modal navigation, calendar controls and language selection */
+#dlg .detail-tabs{justify-content:center;gap:6px;padding:6px;margin:0 0 16px;border-radius:14px;background:rgba(9,13,22,.94);border:1px solid rgba(170,185,215,.14)}
+#dlg .detail-tabs button{display:inline-flex;align-items:center;justify-content:center;text-align:center;min-height:38px;padding:9px 16px;border-radius:10px;transition:background .16s,border-color .16s,color .16s; border:1px solid transparent}
+#dlg .detail-tabs button[aria-selected="true"]{background:rgba(255,145,107,.12);border-color:rgba(255,145,107,.16);color:var(--text);box-shadow:inset 0 -2px 0 rgba(255,145,107,.62)}
+#dlg .detail-tabs button:not([aria-selected="true"]):hover{background:rgba(255,255,255,.045);color:var(--text)}
+.calendar-head{display:grid;grid-template-columns:34px minmax(0,1fr) 34px;align-items:center;gap:7px}
+.calendar-head button[data-calendar-nav]{display:grid;place-items:center;box-sizing:border-box;width:34px;height:34px;padding:0!important;line-height:1!important;font-size:1.15rem!important;font-family:inherit;vertical-align:middle}
+.calendar-title-trigger{min-width:0;min-height:34px}
+.calendar-title-trigger strong{display:flex;align-items:center;justify-content:center;gap:7px;line-height:1.2}
+.calendar-year-row button{display:grid;place-items:center;box-sizing:border-box;padding:0!important;line-height:1!important;font-size:1rem!important}
+.language-menu button[aria-selected="true"]{background:rgba(255,145,107,.105)!important;border-color:rgba(255,145,107,.25)!important;color:var(--text)!important}
+.language-menu button[aria-selected="true"]::after{content:"✓";margin-left:auto;color:var(--sun);font-weight:800;font-size:1rem;line-height:1;display:grid;place-items:center;width:20px;height:20px}
+@media(max-width:700px){#dlg .detail-tabs{justify-content:flex-start}#dlg .detail-tabs button{padding:8px 11px}}
+
+/* Calendar month/year selectors — aligned with the Movies & Series hub */
+.diary-calendar .calendar-head{display:grid;grid-template-columns:32px minmax(0,1.25fr) minmax(74px,.9fr) 32px;align-items:center;gap:5px;margin-bottom:10px}
+.diary-calendar .calendar-head button[data-calendar-nav]{width:32px;height:34px;display:grid;place-items:center;padding:0;font-size:1.1rem;line-height:1}
+.diary-calendar .calendar-month-select,.diary-calendar .calendar-year-select{box-sizing:border-box;width:100%;min-width:0;height:34px;padding:0 7px;border:1px solid var(--line);border-radius:8px;color:var(--text);background:#151d2d;font:inherit;font-size:.76rem;font-weight:500;cursor:pointer}
+.diary-calendar .calendar-month-select:focus,.diary-calendar .calendar-year-select:focus{outline:none;border-color:var(--sun);box-shadow:0 0 0 2px rgba(255,145,107,.12)}
+.diary-calendar .calendar-month-select option,.diary-calendar .calendar-year-select option{background:#151d2d;color:var(--text)}
+@media(max-width:360px){.diary-calendar .calendar-head{grid-template-columns:28px minmax(0,1.2fr) minmax(68px,.9fr) 28px;gap:4px}.diary-calendar .calendar-head button[data-calendar-nav]{width:28px}}
+
+/* Calendar custom month/year dropdowns: remove native OS select styling */
+.diary-calendar .calendar-head{grid-template-columns:32px minmax(0,1fr) 32px;gap:6px}
+.calendar-pickers{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,.9fr);gap:6px;min-width:0}
+.calendar-picker{position:relative;min-width:0}
+.calendar-picker-trigger{display:flex!important;align-items:center;justify-content:space-between;gap:6px;width:100%;height:34px;padding:0 9px!important;border:1px solid var(--line)!important;border-radius:8px!important;background:#151d2d!important;color:var(--text)!important;font-size:.76rem!important;font-weight:550!important;white-space:nowrap}
+.calendar-picker-trigger:hover,.calendar-picker-trigger[aria-expanded="true"]{border-color:rgba(255,145,107,.55)!important;background:rgba(255,145,107,.055)!important}
+.calendar-picker-trigger[aria-expanded="true"] .picker-chevron{transform:rotate(180deg)}
+.picker-chevron{color:var(--muted);font-size:.75rem;transition:transform .16s}
+.calendar-picker-menu{position:absolute;z-index:50;top:calc(100% + 5px);left:0;width:100%;padding:5px;border:1px solid rgba(170,185,215,.18);border-radius:10px;background:linear-gradient(145deg,#172033,#101624);box-shadow:0 14px 32px rgba(0,0,0,.48)}
+.calendar-picker-menu.hidden{display:none!important}
+.calendar-month-menu{display:grid;grid-template-columns:1fr;gap:2px;max-height:260px;overflow-y:auto}
+.calendar-picker-menu button{display:flex!important;align-items:center;justify-content:flex-start;width:100%;min-height:30px;padding:6px 9px!important;border:1px solid transparent!important;border-radius:7px!important;background:transparent!important;color:var(--text)!important;font-size:.76rem!important;text-align:left!important;transition:background .14s,border-color .14s,color .14s}
+.calendar-picker-menu button:hover{background:rgba(255,145,107,.09)!important;border-color:rgba(255,145,107,.24)!important;color:#fff!important}
+.calendar-picker-menu button.active{background:rgba(255,145,107,.13)!important;border-color:rgba(255,145,107,.32)!important;color:var(--sun)!important;font-weight:700!important}
+.calendar-year-menu{max-height:220px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(255,145,107,.38) rgba(255,255,255,.035)}
+.calendar-year-menu button{justify-content:center;min-height:28px}
+.calendar-picker-menu::-webkit-scrollbar{width:6px}
+.calendar-picker-menu::-webkit-scrollbar-track{background:rgba(255,255,255,.035);border-radius:8px}
+.calendar-picker-menu::-webkit-scrollbar-thumb{background:rgba(255,145,107,.34);border-radius:8px}
+@media(max-width:360px){.calendar-pickers{gap:4px}.calendar-picker-trigger{padding:0 6px!important;font-size:.7rem!important}}
+
+/* Fix: balanced calendar month/year picker header */
+.diary-calendar .calendar-head{
+  width:100%;
+  box-sizing:border-box;
+  grid-template-columns:34px minmax(0,1fr) 34px !important;
+  gap:6px !important;
+}
+.diary-calendar .calendar-pickers{
+  display:grid !important;
+  width:100%;
+  min-width:0;
+  box-sizing:border-box;
+  grid-template-columns:minmax(0,1.45fr) minmax(82px,.9fr) !important;
+  gap:6px !important;
+}
+.diary-calendar .calendar-pickers > .calendar-picker{
+  min-width:0;
+  width:100%;
+}
+.diary-calendar .calendar-pickers > .calendar-picker:first-child .calendar-picker-trigger{
+  justify-content:space-between;
+  min-width:0;
+  width:100%;
+}
+.diary-calendar .calendar-pickers > .calendar-picker.year-picker .calendar-picker-trigger{
+  min-width:0;
+  width:100%;
+}
+.diary-calendar .calendar-picker-trigger{
+  box-sizing:border-box;
+  overflow:hidden;
+}
+@media(max-width:360px){
+  .diary-calendar .calendar-head{grid-template-columns:28px minmax(0,1fr) 28px !important;gap:4px !important}
+  .diary-calendar .calendar-pickers{grid-template-columns:minmax(0,1.25fr) minmax(72px,.9fr) !important;gap:4px !important}
+}
+
+/* Final calendar picker layout fix: prevent month/year triggers from collapsing */
+.diary-calendar .calendar-head{
+  display:flex !important;
+  align-items:center !important;
+  gap:6px !important;
+  width:100% !important;
+  box-sizing:border-box !important;
+}
+.diary-calendar .calendar-head > button[data-calendar-nav]{
+  flex:0 0 34px !important;
+  width:34px !important;
+  min-width:34px !important;
+  max-width:34px !important;
+}
+.diary-calendar .calendar-head .calendar-pickers{
+  display:flex !important;
+  flex:1 1 auto !important;
+  min-width:0 !important;
+  width:auto !important;
+  gap:6px !important;
+}
+.diary-calendar .calendar-head .calendar-picker{
+  min-width:0 !important;
+  width:auto !important;
+}
+.diary-calendar .calendar-head .calendar-picker:first-child{
+  flex:1 1 0 !important;
+  min-width:112px !important;
+}
+.diary-calendar .calendar-head .calendar-picker.year-picker{
+  flex:0 0 86px !important;
+  width:86px !important;
+  min-width:86px !important;
+}
+.diary-calendar .calendar-head .calendar-picker-trigger{
+  display:flex !important;
+  width:100% !important;
+  min-width:0 !important;
+  box-sizing:border-box !important;
+  justify-content:space-between !important;
+  overflow:visible !important;
+}
+@media(max-width:360px){
+  .diary-calendar .calendar-head{gap:4px !important}
+  .diary-calendar .calendar-head > button[data-calendar-nav]{flex-basis:28px !important;width:28px !important;min-width:28px !important;max-width:28px !important}
+  .diary-calendar .calendar-head .calendar-pickers{gap:4px !important}
+  .diary-calendar .calendar-head .calendar-picker:first-child{min-width:100px !important}
+  .diary-calendar .calendar-head .calendar-picker.year-picker{flex-basis:72px !important;width:72px !important;min-width:72px !important}
+}
+
+/* Minimal visual cleanup — remove neon/glow from the requested controls only */
+.score-step,
+.save-score-button,
+.episode-stepper button{
+  box-shadow:none!important;
+  text-shadow:none!important;
+}
+.score-step:hover,
+.episode-stepper button:hover,
+.save-score-button:hover{
+  box-shadow:none!important;
+  filter:none!important;
+  border-color:rgba(255,138,92,.35)!important;
+  background:rgba(255,138,92,.07)!important;
+}
+.score-step:focus,
+.score-step:focus-visible,
+.save-score-button:focus,
+.save-score-button:focus-visible,
+.episode-stepper button:focus,
+.episode-stepper button:focus-visible{
+  outline:1px solid rgba(255,138,92,.35)!important;
+  outline-offset:1px!important;
+  box-shadow:none!important;
+}
+
+/* Language dropdown: restrained hover and selected state, no glow */
+.language-trigger,
+.language-menu,
+.language-menu button{
+  box-shadow:none!important;
+  text-shadow:none!important;
+}
+.language-trigger:hover,
+.language-trigger[aria-expanded="true"]{
+  border-color:rgba(255,138,92,.32)!important;
+  background:rgba(255,138,92,.035)!important;
+}
+.language-menu button:hover{
+  border-color:rgba(255,138,92,.18)!important;
+  background:rgba(255,138,92,.065)!important;
+  color:var(--text)!important;
+}
+.language-menu button[aria-selected="true"]{
+  border-color:rgba(255,138,92,.22)!important;
+  background:rgba(255,138,92,.10)!important;
+  color:var(--text)!important;
+  box-shadow:none!important;
+}
+
+/* Calendar: no day dividers or glow; selected date gets a soft palette fill */
+.diary-calendar,
+.diary-calendar button,
+.calendar-picker-menu,
+.calendar-picker-menu button{
+  box-shadow:none!important;
+  text-shadow:none!important;
+}
+.calendar-day,
+.calendar-day:hover,
+.calendar-day.today,
+.calendar-day.selected{
+  box-shadow:none!important;
+}
+.calendar-day:hover{
+  border-color:transparent!important;
+  background:rgba(255,138,92,.08)!important;
+  color:var(--text)!important;
+}
+.calendar-day.today:not(.selected){
+  border-color:transparent!important;
+}
+.calendar-day.selected{
+  border-color:transparent!important;
+  background:rgba(255,138,92,.20)!important;
+  color:var(--text)!important;
+  font-weight:700!important;
+}
+.calendar-head button[data-calendar-nav]:hover,
+.calendar-picker-trigger:hover,
+.calendar-picker-trigger[aria-expanded="true"]{
+  box-shadow:none!important;
+  border-color:rgba(255,138,92,.28)!important;
+  background:rgba(255,138,92,.06)!important;
+}
+.calendar-picker-menu button:hover{
+  border-color:transparent!important;
+  background:rgba(255,138,92,.075)!important;
+  color:var(--text)!important;
+}
+.calendar-picker-menu button.active{
+  border-color:transparent!important;
+  background:rgba(255,138,92,.16)!important;
+  color:var(--text)!important;
+  box-shadow:none!important;
+}
+.calendar-picker-menu,
+.calendar-month-menu,
+.calendar-year-menu{
+  scrollbar-width:thin!important;
+  scrollbar-color:rgba(255,138,92,.22) rgba(255,255,255,.025)!important;
+}
+.calendar-picker-menu::-webkit-scrollbar,
+.calendar-month-menu::-webkit-scrollbar,
+.calendar-year-menu::-webkit-scrollbar{width:6px!important}
+.calendar-picker-menu::-webkit-scrollbar-track,
+.calendar-month-menu::-webkit-scrollbar-track,
+.calendar-year-menu::-webkit-scrollbar-track{background:rgba(255,255,255,.025)!important;border-radius:8px!important}
+.calendar-picker-menu::-webkit-scrollbar-thumb,
+.calendar-month-menu::-webkit-scrollbar-thumb,
+.calendar-year-menu::-webkit-scrollbar-thumb{background:rgba(255,138,92,.22)!important;border-radius:8px!important}
+.calendar-picker-menu button:focus,
+.calendar-picker-menu button:focus-visible,
+.calendar-day:focus,
+.calendar-day:focus-visible{
+  outline:1px solid rgba(255,138,92,.28)!important;
+  outline-offset:1px!important;
+  box-shadow:none!important;
+}
+
+/* Diary date trigger: remove only its glow, preserve all other styling */
+.diary-date-trigger,
+.diary-date-trigger:hover,
+.diary-date-trigger:focus,
+.diary-date-trigger:focus-visible,
+.diary-date-trigger:active,
+.diary-date-trigger[aria-expanded="true"]{
+  box-shadow:none!important;
+  text-shadow:none!important;
+  filter:none!important;
+}
+
+/* Diary forgotten-date toggle: remove glow only */
+.diary-forgot,
+.diary-forgot:hover,
+.diary-forgot:focus,
+.diary-forgot:focus-visible,
+.diary-forgot:active,
+.diary-forgot.active,
+.diary-forgot.active:hover,
+.diary-forgot.active:focus,
+.diary-forgot.active:focus-visible,
+.diary-forgot.active:active,
+.diary-forgot-mark,
+.diary-forgot.active .diary-forgot-mark{
+  box-shadow:none!important;
+  text-shadow:none!important;
+  filter:none!important;
+}
+.diary-forgot:focus,
+.diary-forgot:focus-visible,
+.diary-forgot.active:focus,
+.diary-forgot.active:focus-visible{
+  outline:none!important;
+}
+
+/* Ajustes pontuais de legibilidade do painel anual */
+.yr h2 .year-summary{display:inline-flex;align-items:center;gap:7px;flex-wrap:wrap;max-width:100%;padding:5px 9px;border:1px solid rgba(176,190,218,.12);border-radius:10px;background:rgba(15,21,34,.72);font:500 .78rem var(--sans);color:var(--muted)}
+.year-count{white-space:nowrap}
+.year-best-label{color:var(--gold);font-weight:600;white-space:nowrap}
+.year-best-title{color:var(--text);font-weight:600;overflow-wrap:anywhere}
+.year-best-score{color:var(--gold);font-weight:700;white-space:nowrap}
+.cell .season-count{flex-shrink:0;align-self:flex-start;padding:4px 7px;border-radius:7px;background:rgba(8,11,19,.72);border:1px solid rgba(176,190,218,.13);color:#d5deef;font-size:.76rem;font-weight:500;line-height:1.2;white-space:nowrap}
+.cell .sn{align-items:flex-start}

@@ -144,13 +144,14 @@ async function loadExperience(id){
        ${definitiveEditor}
        <div>
          <label for="provisional-score">Nota provisória (0 a 100)</label>
-         <input id="provisional-score" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="Ex.: 85" value="${esc(currentScore)}">
+         <div class="score-control"><button type="button" class="score-step" data-score-step="-1" aria-label="Diminuir nota">−</button><input id="provisional-score" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="Ex.: 85" value="${esc(currentScore)}"><button type="button" class="score-step" data-score-step="1" aria-label="Aumentar nota">+</button></div>
+         <button type="button" class="save-score-button" id="save-provisional-score">Salvar somente a nota</button><span class="experience-status" id="score-save-status" role="status"></span>
          <p class="platform-hint">Essa nota é independente da nota definitiva e não altera sua avaliação no AniList. Deixe em branco se ainda não quiser avaliar.${legacyTier?` Registro antigo encontrado (${esc(legacyTier)}); ao salvar uma nota numérica, ele será substituído.`:""}</p>
        </div>
        ${historyHtml}
-       <div><label for="watch-language">Idioma</label><select id="watch-language"><option value="">Não informado</option><option value="sub" ${data.language==="sub"?"selected":""}>Legendado</option><option value="dub" ${data.language==="dub"?"selected":""}>Dublado</option><option value="other" ${data.language==="other"?"selected":""}>Outro</option></select></div>
+       <div class="language-picker" id="language-picker"><label>Idioma</label><input type="hidden" id="watch-language" value="${esc(data.language||"")}"><button type="button" class="language-trigger" id="language-trigger" aria-expanded="false"><span id="language-label">${({sub:"Legendado",dub:"Dublado",other:"Outro"}[data.language]||"Não informado")}</span><span class="language-chevron">⌄</span></button><div class="language-menu hidden" id="language-menu"><button type="button" data-language-value="" ${!data.language?"aria-selected=\"true\"":""}>Não informado</button><button type="button" data-language-value="sub" ${data.language==="sub"?"aria-selected=\"true\"":""}>Legendado</button><button type="button" data-language-value="dub" ${data.language==="dub"?"aria-selected=\"true\"":""}>Dublado</button><button type="button" data-language-value="other" ${data.language==="other"?"aria-selected=\"true\"":""}>Outro</button></div></div>
        <div><label>Plataforma(s) em que assistiu</label><div class="platform-picker" id="watch-platforms">
-        ${["Crunchyroll","Netflix","Prime Video","Disney+","Max","YouTube","Outra"].map(platform=>`<label class="platform-option"><input type="checkbox" name="watch-platform" value="${platform}" ${platforms.includes(platform)?"checked":""}><span>${platform}</span></label>`).join("")}
+        ${["Crunchyroll","Netflix","Prime Video","Disney+","Max","YouTube","Outra"].map(platform=>`<label class="platform-option"><input type="checkbox" name="watch-platform" value="${platform}" ${platforms.includes(platform)?"checked":""}><span class="platform-check"></span><span>${platform}</span></label>`).join("")}
        </div><p class="platform-hint">Selecione quantas plataformas quiser.</p></div>
        <div><label for="watch-platform-other">Outra plataforma (opcional)</label><input id="watch-platform-other" maxlength="100" value="${esc(data.otherPlatform||"")}" placeholder="Nome da plataforma"></div>
        <div><label for="watch-notes">Outras informações (opcional)</label><textarea id="watch-notes" maxlength="5000" placeholder="Ex.: acompanhei semanalmente, assisti com amigos…">${esc(data.viewingNotes||"")}</textarea></div>
@@ -159,6 +160,13 @@ async function loadExperience(id){
 
     $("definitive-score").addEventListener("keydown",ev=>{
       if(ev.key==="Enter"){ev.preventDefault();$("experience-form").querySelector("[data-confirm-definitive]")?.click();}
+    });
+    $("save-provisional-score").addEventListener("click",async()=>{
+      const input=$("provisional-score"),status=$("score-save-status"),button=$("save-provisional-score"),raw=input.value.trim(),score=raw===""?null:Number(raw);
+      if(raw!==""&&(!Number.isInteger(score)||score<0||score>100)){status.textContent="Informe uma nota inteira entre 0 e 100.";input.focus();return;}
+      button.disabled=true;status.textContent="Salvando nota…";
+      try{await hubFB.saveAnimeNote(id,{provisionalScore:score});status.textContent="Nota salva!";const badgeNode=$("dlg").querySelector(".dh .meta");if(badgeNode){const oldBadge=badgeNode.querySelector(".provisional-rating-badge");if(oldBadge)oldBadge.remove();if(score!==null){const scoreBadge=document.createElement("span");scoreBadge.className="tier provisional-rating-badge";scoreBadge.style.setProperty("--c","var(--gold)");scoreBadge.innerHTML=`${esc(score)} <small>Provisória</small>`;badgeNode.insertBefore(scoreBadge,badgeNode.querySelector("a")||null);}}await loadExperience(id);}
+      catch(err){status.textContent="Não foi possível salvar: "+(err.code||err.message||"erro desconhecido");button.disabled=false;}
     });
     $("experience-form").addEventListener("submit",async ev=>{
       ev.preventDefault();const btn=ev.currentTarget.querySelector('button[type="submit"]'),status=$("experience-status");btn.disabled=true;status.textContent="Salvando…";
@@ -196,24 +204,37 @@ function diaryDate(value){
   const d=new Date(value+"T12:00:00");
   return Number.isNaN(d.getTime())?value:d.toLocaleDateString("pt-BR");
 }
+function renderDiaryCalendar(value,monthOverride=null,yearOverride=null){
+  const input=$("diary-date"),calendar=$("diary-calendar");if(!input||!calendar)return;
+  const chosen=value?new Date(value+"T12:00:00"):new Date();
+  const view=new Date(yearOverride??chosen.getFullYear(),monthOverride??chosen.getMonth(),1);
+  const monthNames=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+  const offset=view.getDay(),days=new Date(view.getFullYear(),view.getMonth()+1,0).getDate();
+  const prevDays=new Date(view.getFullYear(),view.getMonth(),0).getDate();
+  let cells="";for(let i=0;i<42;i++){let day=i-offset+1,other=false,num=day;if(day<1){num=prevDays+day;other=true}else if(day>days){num=day-days;other=true}const date=new Date(view.getFullYear(),view.getMonth()+(day<1?-1:day>days?1:0),num),iso=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;cells+=`<button type="button" class="calendar-day ${other?"other-month":""} ${iso===input.value?"selected":""} ${iso===localDateISO()?"today":""}" data-calendar-date="${iso}">${num}</button>`}
+  const currentYear=new Date().getFullYear(),years=Array.from({length:currentYear+10-1900+1},(_,i)=>1900+i);
+  calendar.innerHTML=`<div class="calendar-head"><button type="button" data-calendar-nav="-1" aria-label="Mês anterior">‹</button><div class="calendar-pickers"><div class="calendar-picker"><button type="button" class="calendar-picker-trigger" data-calendar-month-trigger aria-expanded="false">${monthNames[view.getMonth()].replace(/^./,c=>c.toUpperCase())}<span class="picker-chevron">⌄</span></button><div class="calendar-picker-menu calendar-month-menu hidden" data-calendar-month-menu>${monthNames.map((m,i)=>`<button type="button" data-calendar-month="${i}" class="${i===view.getMonth()?"active":""}">${m.replace(/^./,c=>c.toUpperCase())}</button>`).join("")}</div></div><div class="calendar-picker year-picker"><button type="button" class="calendar-picker-trigger" data-calendar-year-trigger aria-expanded="false">${view.getFullYear()}<span class="picker-chevron">⌄</span></button><div class="calendar-picker-menu calendar-year-menu hidden" data-calendar-year-menu>${years.map(y=>`<button type="button" data-calendar-year="${y}" class="${y===view.getFullYear()?"active":""}">${y}</button>`).join("")}</div></div></div><button type="button" data-calendar-nav="1" aria-label="Próximo mês">›</button></div><div class="calendar-weekdays">${["D","S","T","Q","Q","S","S"].map(x=>`<span>${x}</span>`).join("")}</div><div class="calendar-grid">${cells}</div><div class="calendar-foot"><button type="button" data-calendar-today>Hoje</button></div>`;
+  calendar.dataset.viewMonth=String(view.getMonth());calendar.dataset.viewYear=String(view.getFullYear());
+}
 function renderDiaryEntries(id,logs,editable=false){
   const a=byId(id),next=(a?.progress||0)+1;
   const sorted=[...logs].sort((x,y)=>String(y.watchedAt||"").localeCompare(String(x.watchedAt||""))||((y.createdAtMs||0)-(x.createdAtMs||0)));
   $("diary-content").className="";
   const form=editable?`<p class="diary-intro">Registre suas impressões episódio por episódio. Você pode adicionar mais de uma anotação ao mesmo episódio.</p>
    <form class="diary-form" id="diary-form">
-    <div><label for="diary-episode">Episódio</label><input id="diary-episode" type="number" min="0" step="1" value="${next}" required></div>
-    <div><label for="diary-date">Data em que assistiu</label><input id="diary-date" type="date" value="${localDateISO()}"><label style="display:flex;align-items:center;gap:7px;margin-top:8px"><input id="diary-forgot" type="checkbox" style="width:auto"> Esqueci a data</label></div>
+    <div class="episode-control-wrap"><label for="diary-episode">Episódio</label><div class="episode-control"><input id="diary-episode" type="number" min="0" step="1" value="${next}" required><div class="episode-stepper"><button type="button" data-episode-step="1" aria-label="Aumentar episódio">+</button><button type="button" data-episode-step="-1" aria-label="Diminuir episódio">−</button></div></div></div>
+    <div class="diary-date-field"><label>Data em que assistiu</label><input id="diary-date" type="hidden" value="${localDateISO()}"><button type="button" class="diary-date-trigger" id="diary-date-trigger" aria-expanded="false"><span class="diary-date-icon">▦</span><span id="diary-date-label">${diaryDate(localDateISO())}</span><span class="diary-date-caret">⌄</span></button><div class="diary-calendar hidden" id="diary-calendar" aria-label="Calendário"></div><button type="button" class="diary-forgot" id="diary-forgot" aria-pressed="false"><span class="diary-forgot-mark"></span>Não lembro a data</button></div>
     <div class="wide-field"><label for="diary-comment">Seu comentário</label><textarea id="diary-comment" maxlength="10000" placeholder="O que aconteceu? O que achou do episódio?" required></textarea></div>
     <button type="submit">Adicionar registro</button><span class="diary-status" id="diary-status" role="status"></span>
    </form>`:'<p class="diary-intro">Diário público de episódios e impressões.</p>';
   $("diary-content").innerHTML=form+`<h3 style="font:600 1.2rem var(--serif);margin:0 0 12px">Histórico <span class="meta">${sorted.length} registro(s)</span></h3>
    <div class="diary-list">${sorted.length?sorted.map(log=>`<article class="diary-entry"><div class="diary-entry-head"><strong>Episódio ${Number(log.episode)||0}</strong><span class="meta">${diaryDate(log.watchedAt)}</span></div><p>${esc(log.comment)}</p>${editable?`<div class="diary-actions"><button type="button" data-edit-log="${esc(log.id)}">Editar</button><button type="button" data-delete-log="${esc(log.id)}">Excluir</button></div>`:""}</article>`).join(""):'<div class="msg">Ainda não há registros públicos para este anime.</div>'}</div>`;
   if(!editable)return;
+  renderDiaryCalendar(localDateISO());
   const formEl=$("diary-form");
   formEl.addEventListener("submit",async ev=>{
-    ev.preventDefault();const status=$("diary-status"),episode=Number($("diary-episode").value),watchedAt=$("diary-forgot").checked?"":$("diary-date").value,comment=$("diary-comment").value.trim();
-    if(!Number.isInteger(episode)||episode<0||(!$("diary-forgot").checked&&!watchedAt)||!comment){status.textContent="Preencha episódio, data (ou marque Esqueci) e comentário.";return}
+    ev.preventDefault();const status=$("diary-status"),episode=Number($("diary-episode").value),watchedAt=$("diary-forgot").getAttribute("aria-pressed")==="true"?"":$("diary-date").value,comment=$("diary-comment").value.trim();
+    if(!Number.isInteger(episode)||episode<0||($("diary-forgot").getAttribute("aria-pressed")!=="true"&&!watchedAt)||!comment){status.textContent="Preencha episódio, data (ou marque Esqueci) e comentário.";return}
     const submit=formEl.querySelector('button[type="submit"]');submit.disabled=true;status.textContent="Salvando…";
     try{await hubFB.addLog({animeId:id,episode,watchedAt,comment});await loadDiary(id);}
     catch(err){status.textContent="Não foi possível salvar: "+(err.code||err.message);submit.disabled=false;}

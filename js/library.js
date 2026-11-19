@@ -53,8 +53,8 @@ function renderPanel(){
       const l=ys.filter(a=>a.season===k);
       if(!l.length) return `<div class="cell empty"><span class="meta">${SEASONS[k]}</span><span class="meta">sem notas</span></div>`;
       const t=l[0];
-      return `<button class="cell" data-go="${y}|${k}" ${bg(t.banner||t.cover)}><span class="sn">${SEASONS[k]}<em>${l.length} com nota</em></span><b>${esc(t.title)}</b>${badge(t.score)}${l.slice(1,3).map(a=>`<span class="mini"><span>${esc(a.title)}</span><i>${a.score}</i></span>`).join("")}</button>`}).join("");
-    return `<section class="yr"><h2><button class="yb" data-go="${y}|">${y}</button><span class="meta">${ys.length} com nota · melhor do ano: ${esc(ys[0].title)} (${ys[0].score})</span></h2><div class="seasons">${cells}</div></section>`}).join("");
+      return `<button class="cell" data-go="${y}|${k}" ${bg(t.banner||t.cover)}><span class="sn"><span class="season-name">${SEASONS[k]}</span><span class="season-count">${l.length} com nota</span></span><b>${esc(t.title)}</b>${badge(t.score)}${l.slice(1,3).map(a=>`<span class="mini"><span>${esc(a.title)}</span><i>${a.score}</i></span>`).join("")}</button>`}).join("");
+    return `<section class="yr"><h2><button class="yb" data-go="${y}|">${y}</button><span class="year-summary"><span class="year-count">${ys.length} com nota</span><span class="year-best-label">Melhor do ano</span><strong class="year-best-title">${esc(ys[0].title)}</strong><span class="year-best-score">${ys[0].score}</span></span></h2><div class="seasons">${cells}</div></section>`}).join("");
 }
 function renderTop(){
   const l=filtered(animes.filter(a=>a.score>0)).sort((a,b)=>b.score-a.score).slice(0,+$("limit").value);
@@ -105,56 +105,80 @@ async function renderHall(){
 }
 
 function renderThemeList(id,th,note,offline=false){
-  const root=$("themes"),comments=note?.themeComments||{},themes=Array.isArray(th)?th:[];
+  const root=$( "themes" ),comments=note?.themeComments||{},themes=Array.isArray(th)?th:[];
   root.className="";
   const realSlugs=new Set(themes.map(t=>t.slug));
   const scoreSlugs=Object.keys(SONG_SCORES).filter(key=>key.startsWith(`${id}:`)).map(key=>key.slice(String(id).length+1));
   const savedOrphans=[...new Set([...Object.keys(comments),...scoreSlugs])].filter(slug=>!realSlugs.has(slug)&&!isProvisionalThemeSlug(slug));
-  const orphanTypes=new Set(savedOrphans.map(themeTypeFromSlug).filter(Boolean));
-  const provisionalKinds=offline&&!themes.length?["OP","ED"].filter(kind=>!orphanTypes.has(kind)):[];
-  const hasSavedProvisional=Object.entries(PROVISIONAL_THEME_SLUGS).some(([kind,slug])=>
-    Object.prototype.hasOwnProperty.call(comments,slug)||SONG_SCORES[`${id}:${slug}`]!=null);
-  const provisionalKindsToRender=[...new Set([...provisionalKinds,...(hasSavedProvisional?Object.keys(PROVISIONAL_THEME_SLUGS).filter(kind=>Object.prototype.hasOwnProperty.call(comments,PROVISIONAL_THEME_SLUGS[kind])||SONG_SCORES[`${id}:${PROVISIONAL_THEME_SLUGS[kind]}`]!=null):[])])];
-  const renderCard=(t,{provisional=false,orphan=false,label=""}={})=>{
-    const key=`${id}:${t.slug}`,sc=SONG_SCORES[key],comment=comments[t.slug]||"";
-    const title=provisional?`${t.type} provisória`:t.title||t.slug;
-    const meta=provisional?"Cadastro temporário · sem identificação da música":(orphan?"Informações da música indisponíveis":"");
-    let association="";
-    if(provisional&&!offline&&themes.length&&fbUser){
-      association=`<div class="theme-comment-wrap"><label for="associate-${t.type}">Quando a API voltou, escolha a música correspondente para transferir sua avaliação:</label><select id="associate-${t.type}" style="width:100%;background:#0c1220;border:1px solid var(--line);border-radius:9px;padding:9px;color:var(--text)"><option value="">Selecione uma música…</option>${themes.filter(x=>x.type===t.type).map(x=>`<option value="${esc(x.slug)}">${esc(x.title||x.slug)}${x.artist?` — ${esc(x.artist)}`:""}</option>`).join("")}</select><button class="theme-comment-save" data-associate-provisional="${t.type}">Associar avaliação</button><span class="experience-status" id="associate-status-${t.type}"></span></div>`;
-    }
-    const kind=themeTypeFromSlug(t.slug)||String(t.type||"").toUpperCase();
-    const kindBadge=!provisional&&label?`<span class="theme-kind-badge ${kind.toLowerCase()}">${esc(label)}</span>`:"";
-    return `<div class="theme ${provisional?"theme-provisional":""}"><b>${esc(title)}</b>${kindBadge} ${!provisional&&t.title?`<span class="meta">${esc(t.artist||"")}${t.eps?" · eps "+esc(t.eps):""}</span>`:`<span class="meta">${esc(meta)}</span>`} ${sc!=null?sbadge(sc):""}
-      ${t.video&&!offline?`<video controls preload="none" src="${esc(t.video)}"></video>`:""}
-      ${fbUser?`<div style="margin-top:8px"><label class="meta" for="sc-${key}">Nota (opcional)</label><input class="sc" id="sc-${key}" type="text" inputmode="decimal" placeholder="0 a 10" value="${sc??""}"> <button class="cp" data-save="${key}">Salvar nota</button> <code id="st-${key}"></code></div><div class="theme-comment-wrap"><label for="tc-${key}">Minha impressão sobre esta música (opcional)</label><textarea class="theme-comment" id="tc-${key}" maxlength="5000" placeholder="O que achou da música, animação, cenas…">${esc(comment)}</textarea><button class="theme-comment-save" data-save-theme-comment="${esc(t.slug)}">Salvar comentário</button> <span class="experience-status" id="tcs-${key}"></span></div>${association}`:(comment?`<div class="theme-comment-wrap public-theme-comment"><span class="meta">Minha impressão</span><p style="white-space:pre-wrap;margin:8px 0 0">${esc(comment)}</p></div>`:"")}</div>`;
-  };
-  const typeCounters={OP:0,ED:0};
-  const cards=themes.map(t=>{
-    const kind=themeTypeFromSlug(t.slug)||String(t.type||"").toUpperCase();
-    if(kind==="OP"||kind==="ED")typeCounters[kind]++;
-    const label=(kind==="OP"||kind==="ED")?`${kind}${typeCounters[kind]}`:"";
-    return renderCard(t,{label});
+  const orphanThemes=savedOrphans.map(slug=>({slug,type:themeTypeFromSlug(slug),title:slug,artist:"",video:"",orphan:true})).filter(t=>t.type);
+  const provisionalKinds=new Set(offline&&!themes.length? ["OP","ED"]:[]);
+  Object.entries(PROVISIONAL_THEME_SLUGS).forEach(([kind,slug])=>{
+    if(Object.prototype.hasOwnProperty.call(comments,slug)||SONG_SCORES[`${id}:${slug}`]!=null)provisionalKinds.add(kind);
   });
-  // Comentários de músicas antigas que não estão no catálogo atual continuam acessíveis.
-  savedOrphans.forEach(slug=>{
-    const kind=themeTypeFromSlug(slug);if(!kind)return;
-    cards.push(renderCard({slug,type:kind,title:slug,artist:"",video:""},{orphan:true,label:slug}));
-  });
-  provisionalKindsToRender.forEach(kind=>{
-    const slug=PROVISIONAL_THEME_SLUGS[kind];
-    cards.push(renderCard({slug,type:kind,title:`${kind} provisória`,artist:"",video:""},{provisional:true}));
-  });
-  if(!cards.length){
-    root.innerHTML=`<div class="msg">${offline?"AnimeThemes indisponível e ainda não há catálogo salvo. Você pode começar com uma avaliação provisória de OP e ED.":"O AnimeThemes não tem OP/ED cadastrado pra esse anime."}</div>`;
-    if(offline){
-      // As duas entradas temporárias aparecem apenas durante a indisponibilidade, quando não há catálogo salvo.
-      root.innerHTML='<p class="meta">AnimeThemes indisponível. Você pode registrar uma avaliação provisória de cada tipo; quando a API voltar, poderá associá-las às músicas reais.</p>'+["OP","ED"].map(kind=>renderCard({slug:PROVISIONAL_THEME_SLUGS[kind],type:kind,title:kind,artist:"",video:""},{provisional:true})).join("");
-    }
+  const provisionalItems=[...provisionalKinds].map(kind=>({slug:PROVISIONAL_THEME_SLUGS[kind],type:kind,title:`${kind} provisória`,artist:"Sem identificação",video:"",provisional:true}));
+  const allThemes=[...themes,...orphanThemes,...provisionalItems];
+  if(!allThemes.length){
+    root.innerHTML=`<div class="msg">${offline?"AnimeThemes indisponível e ainda não há catálogo salvo. Você pode começar com avaliações provisórias de OP e ED.":"O AnimeThemes não tem OP/ED cadastrado pra esse anime."}</div>`;
     return;
   }
-  const intro=offline?'<p class="meta">AnimeThemes indisponível. Exibindo o catálogo salvo e suas anotações; os vídeos voltarão quando a API estiver disponível.</p>':(provisionalKindsToRender.length?'<p class="meta">A API voltou. Suas avaliações provisórias foram preservadas; associe cada uma à música correta para transferi-las.</p>':(savedOrphans.length?'<p class="meta">Algumas anotações antigas não foram encontradas no catálogo atual e continuam disponíveis abaixo.</p>':""));
-  root.innerHTML=intro+cards.join("");
+  const counters={OP:0,ED:0};
+  const items=allThemes.map(t=>{const kind=themeTypeFromSlug(t.slug)||String(t.type||"").toUpperCase();if(kind==="OP"||kind==="ED")counters[kind]++;return {...t,kind,label:(kind==="OP"||kind==="ED")?`${kind}${counters[kind]}`:kind};});
+  const selected=items.find(t=>t.kind==="OP")||items[0];
+  const initialFilter=selected.kind==="ED"?"ED":"OP";
+  const intro=offline?'<p class="meta theme-offline-note">AnimeThemes indisponível. Exibindo catálogo salvo e suas anotações.</p>':(provisionalItems.length?'<p class="meta theme-offline-note">A API voltou. Suas avaliações provisórias foram preservadas; associe-as às músicas correspondentes.</p>':(orphanThemes.length?'<p class="meta theme-offline-note">Algumas anotações antigas não estão no catálogo atual e continuam disponíveis.</p>':""));
+  const makePlayer=t=>{
+    const key=`${id}:${t.slug}`,sc=SONG_SCORES[key],comment=comments[t.slug]||"",kind=t.kind||themeTypeFromSlug(t.slug)||String(t.type||"").toUpperCase();
+    let association="";
+    if(t.provisional&&!offline&&themes.length&&fbUser)association=`<div class="theme-comment-wrap"><label for="associate-${kind}">Associar esta avaliação à música real</label><select id="associate-${kind}" class="theme-associate-select"><option value="">Selecione uma música…</option>${themes.filter(x=>(themeTypeFromSlug(x.slug)||String(x.type||"").toUpperCase())===kind).map(x=>`<option value="${esc(x.slug)}">${esc(x.title||x.slug)}${x.artist?` — ${esc(x.artist)}`:""}</option>`).join("")}</select><button class="theme-comment-save" data-associate-provisional="${kind}">Associar avaliação</button><span class="experience-status" id="associate-status-${kind}"></span></div>`;
+    const publicComment=comment&&!fbUser?`<div class="theme-public-comment"><div class="meta">Minha impressão</div><p>${esc(comment)}</p></div>`:"";
+    const editing=fbUser?`<div class="theme-rating-row"><label for="sc-${key}">Minha nota</label><input class="sc" id="sc-${key}" type="text" inputmode="decimal" placeholder="0 a 10" value="${sc??""}"><button class="cp" data-save="${key}">Salvar nota</button><code id="st-${key}"></code></div><div class="theme-comment-wrap"><label for="tc-${key}">Minha impressão sobre esta música</label><textarea class="theme-comment" id="tc-${key}" maxlength="5000" placeholder="O que achou da música, animação, cenas…">${esc(comment)}</textarea><button class="theme-comment-save" data-save-theme-comment="${esc(t.slug)}">Salvar comentário</button><span class="experience-status" id="tcs-${key}"></span></div>${association}`:"";
+    return `<article class="theme theme-selected ${t.provisional?"theme-provisional":""}"><div class="theme-selected-head"><div><span class="theme-kind-badge ${kind.toLowerCase()}">${esc(t.label||kind)}</span><h3>${esc(t.title||t.slug)}</h3><div class="meta">${esc(t.artist||"Artista não identificado")}${t.eps?` · eps ${esc(t.eps)}`:""}</div></div>${sc!=null?sbadge(sc):""}</div>${t.video&&!offline&&!t.provisional?`<video controls preload="none" src="${esc(t.video)}"></video>`:'<div class="theme-video-placeholder">Vídeo indisponível para esta música</div>'}${publicComment}${editing}</article>`;
+  };
+  root.innerHTML=intro+`<div class="theme-library"><div class="theme-library-controls"><button type="button" class="theme-filter ${initialFilter==="OP"?"active":""}" data-theme-filter="OP" ${items.filter(t=>t.kind==="OP").length?"":"disabled"}>Openings <span>${items.filter(t=>t.kind==="OP").length}</span></button><button type="button" class="theme-filter ${initialFilter==="ED"?"active":""}" data-theme-filter="ED" ${items.filter(t=>t.kind==="ED").length?"":"disabled"}>Endings <span>${items.filter(t=>t.kind==="ED").length}</span></button></div><div class="theme-track-list" data-theme-track-list></div><div class="theme-active-player" data-active-theme>${makePlayer(selected)}</div></div>`;
+  root.dataset.animeId=String(id);root.dataset.themeOffline=String(offline);
+  root.dataset.themeSelected=selected.slug;
+  root.dataset.themeFilter=initialFilter;
+  root._themeItems=items;root._themeNote=note;root._themeComments=comments;root._themeOffline=offline;
+  root._makeThemePlayer=makePlayer;
+  renderThemeTrackButtons(root);
+  // Bind category controls directly after every render. The modal replaces innerHTML,
+  // so a one-time delegated handler can become detached from the recreated controls.
+  root.querySelectorAll("[data-theme-filter]").forEach(button=>{
+    button.addEventListener("click",()=>filterThemeList(root,button.dataset.themeFilter));
+  });
+}
+
+function renderThemeTrackButtons(root){
+  const list=root.querySelector("[data-theme-track-list]");
+  if(!list)return;
+  const kind=root.dataset.themeFilter||"OP",selectedSlug=root.dataset.themeSelected;
+  const visible=(root._themeItems||[]).filter(t=>t.kind===kind);
+  list.innerHTML=visible.map(t=>`<button type="button" class="theme-track ${t.slug===selectedSlug?"active":""}" data-select-theme="${esc(t.slug)}" data-theme-kind="${esc(t.kind)}"><span class="theme-track-code">${esc(t.label)}</span><span class="theme-track-info"><b>${esc(t.title||t.slug)}</b><small>${esc(t.artist||"Artista não identificado")}</small></span><span class="theme-track-score">${SONG_SCORES[`${root.dataset.animeId}:${t.slug}`]!=null?esc(SONG_SCORES[`${root.dataset.animeId}:${t.slug}`]):"—"}</span></button>`).join("");
+  // Bind each rendered track explicitly so selecting one always updates both the
+  // selected state and the active detail/player panel.
+  list.querySelectorAll("[data-select-theme]").forEach(button=>{
+    button.addEventListener("click",()=>selectThemeInList(root,button.dataset.selectTheme));
+  });
+}
+function selectThemeInList(root,slug){
+  const item=root._themeItems?.find(t=>t.slug===slug);if(!item)return;
+  root.dataset.themeSelected=slug;
+  if(item.kind!==root.dataset.themeFilter)root.dataset.themeFilter=item.kind;
+  root.querySelectorAll("[data-theme-filter]").forEach(b=>b.classList.toggle("active",b.dataset.themeFilter===root.dataset.themeFilter));
+  renderThemeTrackButtons(root);
+  const player=root.querySelector("[data-active-theme]");if(player)player.innerHTML=root._makeThemePlayer(item);
+}
+function filterThemeList(root,kind){
+  if(!["OP","ED"].includes(kind))return;
+  const available=root._themeItems?.filter(t=>t.kind===kind)||[];
+  if(!available.length)return;
+  root.dataset.themeFilter=kind;
+  root.querySelectorAll("[data-theme-filter]").forEach(b=>b.classList.toggle("active",b.dataset.themeFilter===kind));
+  const current=root._themeItems?.find(t=>t.slug===root.dataset.themeSelected);
+  if(!current||current.kind!==kind){root.dataset.themeSelected=available[0].slug;}
+  renderThemeTrackButtons(root);
+  const selected=root._themeItems?.find(t=>t.slug===root.dataset.themeSelected);
+  const player=root.querySelector("[data-active-theme]");if(player&&selected)player.innerHTML=root._makeThemePlayer(selected);
 }
 
 function render(){
