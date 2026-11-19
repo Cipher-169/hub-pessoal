@@ -2,7 +2,7 @@
    CONTROLE DE VERSÃO:
    Sempre que modificar este arquivo incremente HUB_VERSION em +1.
    ===================================================================== */
-const HUB_VERSION = 21;
+const HUB_VERSION = 22;
 window.HUB_VERSION = HUB_VERSION;
 document.getElementById("project-version").textContent = `v${HUB_VERSION}`;
 
@@ -70,15 +70,33 @@ async function fetchList(user){
 }
 async function fetchThemes(id){
   if(themeCache.has(id)) return themeCache.get(id);
-  const r=await fetch(`https://api.animethemes.moe/anime?filter[has]=resources&filter[site]=AniList&filter[external_id]=${id}&include=animethemes.animethemeentries.videos,animethemes.song.artists`);
-  if(!r.ok)throw new Error(`AnimeThemes HTTP ${r.status}`);
+  const query=`query($id:[Int!]){
+    findAnimeByExternalSite(site:ANILIST,id:$id){
+      id slug
+      animethemes(first:100){
+        slug type
+        song{title performances{artist{nameMain}}}
+        animethemeentries(first:100){episodes videos(first:100){link resolution}}
+      }
+    }
+  }`;
+  const r=await fetch("https://graphql.animethemes.moe/",{
+    method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},
+    body:JSON.stringify({query,variables:{id:[Number(id)]}})
+  });
+  if(!r.ok)throw new Error(`AnimeThemes GraphQL HTTP ${r.status}`);
   const j=await r.json();
-  if(!j||!Array.isArray(j.anime))throw new Error("Resposta inválida do AnimeThemes");
-  const th=(j.anime[0]?.animethemes||[]).map(t=>({slug:t.slug,type:t.type,title:t.song?.title||"(sem título)",
-    artist:(t.song?.artists||[]).map(a=>a.name).join(", "),eps:t.animethemeentries?.[0]?.episodes||"",
-    video:(t.animethemeentries?.[0]?.videos||[]).sort((a,b)=>(b.resolution||0)-(a.resolution||0))[0]?.link}));
+  if(j?.errors?.length)throw new Error(j.errors[0].message||"Erro GraphQL AnimeThemes");
+  const anime=j?.data?.findAnimeByExternalSite;
+  if(!anime) return [];
+  const th=(anime.animethemes||[]).map(t=>{
+    const entries=t.animethemeentries||[];
+    const entry=entries.find(e=>e.videos?.length)||entries[0];
+    const videos=(entry?.videos||[]).filter(v=>v.link).sort((a,b)=>(b.resolution||0)-(a.resolution||0));
+    const artists=(t.song?.performances||[]).map(p=>p.artist?.nameMain).filter(Boolean);
+    return {slug:t.slug,type:t.type,title:t.song?.title||"(sem título)",artist:artists.join(", "),eps:entry?.episodes||"",video:videos[0]?.link};
+  });
   // Não guardar respostas vazias: uma falha/retorno transitório não deve virar cache permanente nesta sessão.
   if(th.length)themeCache.set(id,th);
   return th;
 }
-
