@@ -723,3 +723,76 @@ dialog{border-radius:20px;border-color:rgba(176,190,218,.18);background:#0b101b}
   .wide img{width:78px}
   .wide b{font-size:1.12rem}
 }
+
+/* NEXUS Modal Stage 01 — structural usability */
+#dlg{
+  width:min(980px,95vw);
+  max-height:min(92vh,92dvh);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(154,169,195,.38) transparent;
+}
+#dlg[open]{display:flex}
+#dlg .dh{
+  min-height:clamp(150px,23vh,230px);
+  padding:20px clamp(18px,3vw,34px) 18px;
+  flex:0 0 auto;
+  background-position:center 38%;
+}
+#dlg .dh::before{
+  background:linear-gradient(0deg,#0a0d18 0%,rgba(10,13,24,.78) 38%,rgba(10,13,24,.2) 100%),
+             linear-gradient(90deg,rgba(10,13,24,.5),transparent 85%);
+}
+#dlg .dh h2{font-size:clamp(1.55rem,3vw,2.35rem);line-height:1.1;max-width:85%;}
+#dlg .dh .meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:5px}
+#dlg .anime-refresh{margin-top:8px;padding:6px 12px}
+#dlg .db{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:12px clamp(14px,2.3vw,24px) 26px;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(154,169,195,.38) transparent;
+}
+#dlg .detail-tabs{
+  position:sticky;
+  top:0;
+  z-index:8;
+  flex-wrap:nowrap;
+  overflow-x:auto;
+  margin-bottom:14px;
+  padding:5px;
+  background:rgba(11,15,25,.9);
+  backdrop-filter:blur(18px);
+  scrollbar-width:none;
+}
+#dlg .detail-tabs::-webkit-scrollbar{display:none}
+#dlg .detail-tabs button{white-space:nowrap;flex:0 0 auto;padding:9px 14px}
+#dlg .dx,#dlg .dmode{z-index:3;top:12px}
+#dlg.fullscreen{
+  display:flex;
+  flex-direction:column;
+  width:100vw;
+  height:100vh;
+  height:100dvh;
+  max-height:none;
+  overflow:hidden;
+}
+#dlg.fullscreen .dh{min-height:clamp(170px,25vh,270px);padding:22px clamp(18px,5vw,68px) 22px;flex-basis:auto}
+#dlg.fullscreen .db{width:100%;max-width:1320px;margin:0 auto;padding:12px clamp(14px,3vw,38px) 34px;flex:1;min-height:0;overflow-y:auto}
+#dlg.fullscreen .detail-tabs{top:0}
+@media(max-width:700px){
+  #dlg{width:96vw;max-height:94vh;max-height:94dvh;border-radius:16px}
+  #dlg .dh{min-height:158px;padding:16px 14px 14px;background-position:center 38%}
+  #dlg .dh h2{max-width:100%;font-size:clamp(1.35rem,6vw,1.9rem);padding-right:64px}
+  #dlg .dx{top:10px;right:10px;padding:5px 10px}
+  #dlg .dmode{top:10px;right:76px;padding:5px 9px}
+  #dlg .db{padding:10px 10px 20px}
+  #dlg .detail-tabs button{padding:8px 11px;font-size:.88rem}
+  #dlg.fullscreen .dh{min-height:150px;padding:16px 14px 14px}
+  #dlg.fullscreen .db{padding:10px 10px 24px}
+}
