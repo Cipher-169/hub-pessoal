@@ -225,6 +225,10 @@ document.addEventListener("click",async e=>{
     if(name==="experience"&&activeDiaryAnime!=null)loadExperience(activeDiaryAnime);
     return;
   }
+  const themeFilter=e.target.closest("[data-theme-filter]");
+  if(themeFilter){const root=$( "themes" );if(root)filterThemeList(root,themeFilter.dataset.themeFilter);return;}
+  const themeSelect=e.target.closest("[data-select-theme]");
+  if(themeSelect){const root=$( "themes" );if(root)selectThemeInList(root,themeSelect.dataset.selectTheme);return;}
   const editDate=e.target.closest('input[name="dateForgotten"]');
   if(editDate){const date=editDate.closest("form").querySelector('input[name="watchedAt"]');date.disabled=editDate.checked;if(editDate.checked)date.value="";else if(!date.value)date.value=localDateISO();return;}
   const forgot=e.target.closest("#diary-forgot");
