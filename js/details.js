@@ -243,7 +243,7 @@ function renderDiaryEntries(id,logs,editable=false){
 async function loadDiary(id){
   activeDiaryAnime=id;
   $("diary-content").className="msg";$("diary-content").textContent="Carregando diário…";
-  try{const logs=await hubFB.getLogs(id);if(activeDiaryAnime===id&&$("dlg").open)renderDiaryEntries(id,logs,!!fbUser)}
+  try{const logs=await hubFB.getLogs(id);if(activeDiaryAnime===id&&$("dlg").open){renderDiaryEntries(id,logs,!!fbUser);if(fbUser&&typeof renderAnimeReviewPanel==="function")await renderAnimeReviewPanel(id);}}
   catch(err){$("diary-content").innerHTML=`<div class="msg err">Não consegui carregar o diário (${esc(err.code||err.message)}). Confira se a leitura pública está liberada nas regras do Firestore.</div>`}
 }
 

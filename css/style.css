@@ -1230,3 +1230,6 @@ dialog{border-radius:20px;border-color:rgba(176,190,218,.18);background:#0b101b}
 .ws-proposal-columns strong{font-size:.8rem;color:var(--muted)}
 .ws-proposal-columns p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55;margin:8px 0 0}
 @media(max-width:650px){.ws-proposal-columns{grid-template-columns:1fr}}
+
+/* Geração e revisão assistida de resenhas */
+.anime-review-panel{margin-top:24px;padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}.review-reference-selection{display:grid;gap:8px;margin:12px 0}.review-reference-selection label{display:flex;align-items:center;gap:8px}.review-reference-selection input{width:auto}.anime-review-panel textarea{width:100%;min-height:260px;margin:10px 0;line-height:1.65}.anime-review-panel .ws-actions{margin:12px 0}

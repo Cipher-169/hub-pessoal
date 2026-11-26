@@ -427,6 +427,8 @@ window.hubFB={
     if(sourceSnap.exists()){animeScores[targetKey]=sourceSnap.data().score;delete animeScores[sourceKey];await cacheSet(`songScoresAnime:${animeId}`,animeScores);}
     return true;
   },
+  generateAnimeReview:async(payload)=>geminiWorkerRequest("/ai/generate-review",payload),
+  saveAnimeReview:async(animeId,review)=>{requireOwner();const ref=notePath(animeId);await setDoc(ref,{animeId:Number(animeId),aiReview:{text:String(review.text||""),approvedAt:String(review.approvedAt||new Date().toISOString()),updatedAt:serverTimestamp()}},{merge:true});const check=await getDocFromServer(ref);const saved=check.exists()?check.data()?.aiReview:null;if(!saved||saved.text!==String(review.text||""))throw new Error("O Firebase não confirmou o conteúdo da resenha.");await cacheDelete(noteCacheKey(animeId));await cacheDelete("stats:animeNotes");return saved;},
   addLog:async({animeId,episode,watchedAt,comment})=>{requireOwner();await addDoc(logsPath(),{animeId:Number(animeId),episode:Number(episode),watchedAt,comment,createdAt:serverTimestamp()});await cacheDelete(logsCacheKey(animeId));await cacheDelete("stats:episodeLogs")},
   getLogs:async (animeId,{refresh=false}={})=>{
     const key=logsCacheKey(animeId),q=query(logsPath(),where("animeId","==",Number(animeId)));
