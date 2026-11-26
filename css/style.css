@@ -1233,3 +1233,32 @@ dialog{border-radius:20px;border-color:rgba(176,190,218,.18);background:#0b101b}
 
 /* Geração e revisão assistida de resenhas */
 .anime-review-panel{margin-top:24px;padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}.review-reference-selection{display:grid;gap:8px;margin:12px 0}.review-reference-selection label{display:flex;align-items:center;gap:8px}.review-reference-selection input{width:auto}.anime-review-panel textarea{width:100%;min-height:260px;margin:10px 0;line-height:1.65}.anime-review-panel .ws-actions{margin:12px 0}
+
+/* v23.6.3 — polimento da Biblioteca de estilo e editor de resenhas */
+.ws-section-head>[data-ws-action="new"]{align-self:center;flex:0 0 auto;background:linear-gradient(135deg,var(--sun),#f2b66d);color:#21130e;border:0;border-radius:10px;padding:10px 15px;font-weight:650;box-shadow:0 5px 14px rgba(255,145,107,.12)}
+.ws-section-head>[data-ws-action="new"]:hover{filter:brightness(1.05);transform:translateY(-1px)}
+.anime-review-panel{margin:12px 0;padding:clamp(14px,2.2vw,22px);border:1px solid var(--line);border-radius:16px;background:var(--panel);}
+.anime-review-panel>.ws-section-head{text-align:center;justify-content:center;margin:0 auto 22px;max-width:800px}
+.anime-review-panel>.ws-section-head>div{width:100%}
+.anime-review-panel>.ws-section-head h3{font-size:1.45rem}
+.anime-review-panel>.ws-section-head p{max-width:none;margin:7px auto 0;line-height:1.55}
+.review-reference-selection{padding:16px;border:1px solid var(--line);border-radius:13px;background:rgba(255,255,255,.025);gap:10px}
+.review-reference-selection>strong{text-align:center;font-size:1rem}
+.review-reference-selection>p{text-align:center;margin:0 0 5px}
+.review-reference-selection label{display:flex;align-items:flex-start;gap:11px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(9,13,22,.5);color:var(--text);line-height:1.45;cursor:pointer;transition:border-color .15s,background .15s}
+.review-reference-selection label:hover{border-color:rgba(255,145,107,.4);background:rgba(255,145,107,.055)}
+.review-reference-selection input[type="checkbox"]{accent-color:var(--sun);width:17px;height:17px;flex:0 0 auto;margin:2px 0 0}
+.anime-review-panel .ws-actions{justify-content:center}
+.anime-review-panel #review-feedback{text-align:center}
+.anime-review-panel #review-editor-wrap{margin-top:20px;padding-top:18px;border-top:1px solid var(--line)}
+.anime-review-panel #review-editor-wrap>label{display:block;font-weight:650;margin-bottom:8px}
+.anime-review-panel textarea{display:block;width:100%;box-sizing:border-box;min-height:300px;padding:14px;border:1px solid var(--line);border-radius:12px;background:#090e18;color:var(--text);font:inherit;line-height:1.7;resize:vertical;outline:none}
+.anime-review-panel textarea:focus{border-color:rgba(255,145,107,.55);box-shadow:0 0 0 3px rgba(255,145,107,.08)}
+.anime-review-panel #review-editor-wrap .ws-actions{justify-content:flex-start}
+@media(max-width:650px){.ws-section-head>[data-ws-action="new"]{width:100%}.review-reference-selection{padding:12px}}
+
+/* Instruções editáveis da IA na Biblioteca de estilo */
+.ws-generation-settings .ws-prompt-label{display:block;font-weight:650;margin:18px 0 7px}
+.ws-generation-settings textarea{display:block;width:100%;box-sizing:border-box;min-height:150px;padding:13px 14px;border:1px solid var(--line);border-radius:12px;background:#090e18;color:var(--text);font:inherit;line-height:1.65;resize:vertical;outline:none}
+.ws-generation-settings textarea:focus{border-color:rgba(255,145,107,.55);box-shadow:0 0 0 3px rgba(255,145,107,.08)}
+.ws-generation-settings .meta{line-height:1.55}

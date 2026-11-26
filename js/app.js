@@ -32,6 +32,8 @@ async function load({sync=false}={}){
   }finally{loadingCatalog=false;button.disabled=false;}
 }
 document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>{tab=b.dataset.tab;
+  // Fecha o modal de anime ao navegar para outra área do Hub, evitando que ele permaneça sobre a página.
+  if($("dlg")?.open)$("dlg").close();
   document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));if(animes.length||tab==="stats"||tab==="ranking"||tab==="writing-style")render()}));
 ["search-query", "type", "year", "season", "limit"].forEach(id => {
   const el = $(id);
