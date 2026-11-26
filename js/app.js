@@ -292,7 +292,7 @@ document.addEventListener("click",async e=>{
   if(g){const [y,k]=g.dataset.go.split("|");tab="top";$("year").value=y;$("season").value=k;
     document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x.dataset.tab==="top"));
     render();$("sub").scrollIntoView({behavior:"smooth"});return}
-const b=e.target.closest("[data-id]");if(b&&!$("dlg").contains(b))openAnime(+b.dataset.id);
+const b=e.target.closest("[data-id]");if(b&&!$("dlg").contains(b)&&!b.closest("[data-ws-action]"))openAnime(+b.dataset.id);
   const c=e.target.closest("[data-copy]");if(c){navigator.clipboard?.writeText(c.dataset.copy);c.textContent="Copiado"}});
 $("dlg").addEventListener("click",(e)=>{
   // Clicking the dialog backdrop closes the anime pop-out; clicks inside remain untouched.
