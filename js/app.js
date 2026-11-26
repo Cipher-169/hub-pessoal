@@ -246,9 +246,10 @@ document.addEventListener("click",async e=>{
   const detailTab=e.target.closest("[data-detail-tab]");
   if(detailTab){const name=detailTab.dataset.detailTab;
     document.querySelectorAll("[data-detail-tab]").forEach(b=>b.setAttribute("aria-selected",String(b===detailTab)));
-    ["themes","experience","diary"].forEach(tabName=>$(`detail-${tabName}`).classList.toggle("hidden",name!==tabName));
+    ["themes","experience","diary","reviews"].forEach(tabName=>$(`detail-${tabName}`).classList.toggle("hidden",name!==tabName));
     if(name==="diary"&&activeDiaryAnime!=null)loadDiary(activeDiaryAnime);
     if(name==="experience"&&activeDiaryAnime!=null)loadExperience(activeDiaryAnime);
+    if(name==="reviews"&&activeDiaryAnime!=null&&fbUser&&typeof renderAnimeReviewPanel==="function")renderAnimeReviewPanel(activeDiaryAnime);
     return;
   }
   const editDate=e.target.closest('input[name="dateForgotten"]');

@@ -14,10 +14,11 @@ async function openAnime(id,{fullscreen=false,fromUrl=false}={}){
   d.innerHTML=`<div class="dh" ${bg(a?.banner||a?.cover)}><button type="button" class="dmode" data-dialog-mode aria-label="Expandir para tela cheia" title="Expandir para tela cheia">⛶</button><button class="dx" onclick="dlg.close()">Fechar</button><h2>${esc(a?.title||"Anime "+id)}</h2>
    <div class="meta">${a?when(a):""} ${a?.score?badge(a.score):""} ${provBadge} · <a href="${a?.url||"https://anilist.co/anime/"+id}" target="_blank" rel="noopener">AniList</a></div>
    <div><button type="button" class="anime-refresh" data-refresh-anime="${id}">↻ Atualizar dados deste anime</button><span class="anime-refresh-status" id="anime-refresh-status" role="status"></span></div></div>
-   <div class="db"><div class="detail-tabs"><button type="button" data-detail-tab="themes" aria-selected="true">OP e ED</button><button type="button" data-detail-tab="experience" aria-selected="false">Minha experiência</button><button type="button" data-detail-tab="diary" aria-selected="false">Diário de episódios</button></div>
+   <div class="db"><div class="detail-tabs"><button type="button" data-detail-tab="themes" aria-selected="true">OP e ED</button><button type="button" data-detail-tab="experience" aria-selected="false">Minha experiência</button><button type="button" data-detail-tab="diary" aria-selected="false">Diário de episódios</button><button type="button" data-detail-tab="reviews" aria-selected="false">Resenhas</button></div>
    <section id="detail-themes"><div id="themes" class="msg">Carregando músicas e comentários salvos…</div></section>
    <section id="detail-experience" class="hidden"><div id="experience-content" class="msg">Carregando…</div></section>
-   <section id="detail-diary" class="hidden"><div id="diary-content" class="msg">Carregando diário…</div></section></div>`;
+   <section id="detail-diary" class="hidden"><div id="diary-content" class="msg">Carregando diário…</div></section>
+   <section id="detail-reviews" class="hidden"><div id="review-content" class="msg">Abra esta aba para gerar ou revisar uma resenha.</div></section></div>`;
   if(!d.open)d.showModal();
   if(fullscreen||wasFullscreen)d.classList.add("fullscreen");else d.classList.remove("fullscreen");
   const modeControl=d.querySelector("[data-dialog-mode]");
@@ -243,7 +244,7 @@ function renderDiaryEntries(id,logs,editable=false){
 async function loadDiary(id){
   activeDiaryAnime=id;
   $("diary-content").className="msg";$("diary-content").textContent="Carregando diário…";
-  try{const logs=await hubFB.getLogs(id);if(activeDiaryAnime===id&&$("dlg").open){renderDiaryEntries(id,logs,!!fbUser);if(fbUser&&typeof renderAnimeReviewPanel==="function")await renderAnimeReviewPanel(id);}}
+  try{const logs=await hubFB.getLogs(id);if(activeDiaryAnime===id&&$("dlg").open){renderDiaryEntries(id,logs,!!fbUser);}}
   catch(err){$("diary-content").innerHTML=`<div class="msg err">Não consegui carregar o diário (${esc(err.code||err.message)}). Confira se a leitura pública está liberada nas regras do Firestore.</div>`}
 }
 

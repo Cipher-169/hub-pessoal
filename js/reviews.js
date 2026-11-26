@@ -1,21 +1,25 @@
 /* Geração assistida de resenhas: contexto restrito ao anime aberto, diário e perfil aprovado. */
 async function renderAnimeReviewPanel(animeId){
-  const diaryRoot=$('diary-content');if(!diaryRoot||activeDiaryAnime!==animeId)return;
+  const reviewRoot=$('review-content');if(!reviewRoot||activeDiaryAnime!==animeId)return;
   let note={},logs=[],refs=[],profile={};
   try{[note,logs,refs,profile]=await Promise.all([hubFB.getAnimeNote(animeId),hubFB.getLogs(animeId),hubFB.getWritingStyleReferences(),hubFB.getWritingStyleProfile()]);}catch(err){console.warn('Review context load:',err);}
   if(activeDiaryAnime!==animeId||!$('dlg').open)return;
+  const themeCatalog=Array.isArray(note.themeCatalog)?note.themeCatalog:[];
+  const themeComments=note.themeComments&&typeof note.themeComments==='object'?note.themeComments:{};
+  const allThemeItems=[...themeCatalog,...Object.entries(PROVISIONAL_THEME_SLUGS||{}).map(([kind,slug])=>({slug,type:kind,title:`${kind} provisória`,artist:''}))];
+  const opEdItems=allThemeItems.map(t=>{const kind=themeTypeFromSlug(t.slug)||String(t.type||'').toUpperCase();return {kind,title:t.title||t.slug,artist:t.artist||'',comment:String(themeComments[t.slug]||''),score:SONG_SCORES[`${animeId}:${t.slug}`]??null};}).filter(t=>(t.kind==='OP'||t.kind==='ED')&&(t.comment.trim()||t.score!==null));
   const saved=note.aiReview&&typeof note.aiReview==='object'?note.aiReview:null;
   const activeRefs=refs.filter(r=>r.active!==false&&String(r.text||'').trim());
   const root=document.createElement('section');root.id='anime-review-panel';root.className='anime-review-panel';
-  root.innerHTML=`<div class="ws-section-head"><div><h3>Resenha com IA</h3><p class="meta">A geração usa o diário deste anime e seu perfil de escrita aprovado. Você revisa antes de salvar.</p></div></div>${activeRefs.length?`<div class="review-reference-selection"><strong>Referências adicionais</strong><p class="meta">Selecione exemplos para esta geração (opcional).</p>${activeRefs.map((r,i)=>`<label><input type="checkbox" data-review-ref="${esc(r.id)}" checked> ${esc(r.title||r.animeTitle||`Referência ${i+1}`)}</label>`).join('')}</div>`:'<p class="meta">Sem referências ativas; o perfil aprovado será utilizado.</p>'}<div class="ws-actions"><button type="button" class="primary" id="generate-anime-review">${saved?'Gerar nova versão':'Gerar resenha'}</button></div><p class="ws-feedback" id="review-feedback" role="status"></p><div id="review-editor-wrap" ${saved?'':'class="hidden"'}><label for="anime-review-draft">Resenha provisória</label><textarea id="anime-review-draft" rows="12">${esc(saved?.text||'')}</textarea><div class="ws-actions"><button type="button" class="primary" id="save-anime-review">Aprovar e salvar</button><button type="button" id="discard-anime-review">Descartar texto</button></div></div>`;
-  diaryRoot.append(root);
+  root.innerHTML=`<div class="ws-section-head"><div><h3>Resenha com IA</h3><p class="meta">A geração considera o diário, comentários e notas de OP/ED, além do perfil de escrita aprovado. Você revisa antes de salvar.</p></div></div>${activeRefs.length?`<div class="review-reference-selection"><strong>Referências adicionais</strong><p class="meta">Selecione exemplos para esta geração (opcional).</p>${activeRefs.map((r,i)=>`<label><input type="checkbox" data-review-ref="${esc(r.id)}" checked> ${esc(r.title||r.animeTitle||`Referência ${i+1}`)}</label>`).join('')}</div>`:'<p class="meta">Sem referências ativas; o perfil aprovado será utilizado.</p>'}<div class="ws-actions"><button type="button" class="primary" id="generate-anime-review">${saved?'Gerar nova versão':'Gerar resenha'}</button></div><p class="ws-feedback" id="review-feedback" role="status"></p><div id="review-editor-wrap" ${saved?'':'class="hidden"'}><label for="anime-review-draft">Resenha provisória</label><textarea id="anime-review-draft" rows="12">${esc(saved?.text||'')}</textarea><div class="ws-actions"><button type="button" class="primary" id="save-anime-review">Aprovar e salvar</button><button type="button" id="discard-anime-review">Descartar texto</button></div></div>`;
+  reviewRoot.replaceChildren(root);
   root.dataset.animeId=String(animeId);
   if(saved?.text)root.dataset.savedReview=saved.text;
   const generate=root.querySelector('#generate-anime-review');generate.addEventListener('click',async()=>{
     const feedback=root.querySelector('#review-feedback');generate.disabled=true;generate.textContent='Gerando…';feedback.textContent='Organizando registros e solicitando a resenha…';
     try{
       const selectedIds=[...root.querySelectorAll('[data-review-ref]:checked')].map(x=>x.dataset.reviewRef),selected=activeRefs.filter(r=>selectedIds.includes(r.id));
-      const response=await hubFB.generateAnimeReview({animeId,animeTitle:byId(animeId)?.title||`Anime ${animeId}`,logs,profile:profile.sections||{},references:selected.map(r=>({title:r.title,animeTitle:r.animeTitle,note:r.note,text:r.text}))});
+      const response=await hubFB.generateAnimeReview({animeId,animeTitle:byId(animeId)?.title||`Anime ${animeId}`,logs,opEd:opEdItems,profile:profile.sections||{},references:selected.map(r=>({title:r.title,animeTitle:r.animeTitle,note:r.note,text:r.text}))});
       if(!response?.review?.trim())throw new Error('O Worker retornou uma resenha vazia.');
       root.querySelector('#anime-review-draft').value=response.review;root.querySelector('#review-editor-wrap').classList.remove('hidden');feedback.textContent=`Resenha gerada${response.model?` (${response.model})`:''}. Revise antes de aprovar.`;root.dataset.generatedReview=response.review;
     }catch(err){feedback.textContent=`Falha na geração: ${err.message||err}`;}finally{generate.disabled=false;generate.textContent='Gerar nova versão';}
