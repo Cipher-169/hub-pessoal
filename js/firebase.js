@@ -30,6 +30,11 @@ async function anilistWorkerRequest(path,method="GET"){
   if(payload&&payload.ok===false)throw new Error("O Worker recusou a operação.");
   return payload;
 }
+async function geminiWorkerRequest(path,payload){
+  requireOwner();const user=auth.currentUser;if(!user)throw new Error("Autenticação Firebase indisponível.");
+  const idToken=await user.getIdToken();const response=await fetch(`${ANILIST_WORKER_URL}${path}`,{method:"POST",headers:{Authorization:`Bearer ${idToken}`,"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify(payload),cache:"no-store",credentials:"omit"});
+  let data={};try{data=await response.json()}catch(_){}if(!response.ok)throw new Error(data.error||`Worker HTTP ${response.status}`);return data;
+}
 /* O token AniList permanece exclusivamente no Worker; o frontend usa apenas o ID Token temporário do Firebase. */
 /* O cache persistente do Firestore usa IndexedDB; este cache de aplicação acrescenta TTL por tipo de dado. */
 const db=initializeFirestore(app,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
@@ -145,8 +150,9 @@ window.hubFB={
   getWritingStyleReferences:async()=>{requireOwner();const snap=await getDocs(collection(db,"users",OWNER_UID,"writingStyleReferences"));return snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.updatedAtMs||b.createdAtMs||0)-(a.updatedAtMs||a.createdAtMs||0));},
   saveWritingStyleReference:async(reference)=>{requireOwner();const ref=reference.id?doc(db,"users",OWNER_UID,"writingStyleReferences",reference.id):doc(collection(db,"users",OWNER_UID,"writingStyleReferences"));const data={title:String(reference.title||"").trim(),text:String(reference.text||""),animeTitle:String(reference.animeTitle||"").trim(),note:String(reference.note||"").trim(),active:reference.active!==false,updatedAt:serverTimestamp()};if(!reference.id)data.createdAt=serverTimestamp();await setDoc(ref,data,{merge:true});return ref.id;},
   deleteWritingStyleReference:async(id)=>{requireOwner();await deleteDoc(doc(db,"users",OWNER_UID,"writingStyleReferences",id));},
-  getWritingStyleProfile:async()=>{requireOwner();const snap=await getDoc(doc(db,"users",OWNER_UID,"writingStyle","profile"));return snap.exists()?snap.data():{profileText:""};},
-  saveWritingStyleProfile:async(profileText)=>{requireOwner();await setDoc(doc(db,"users",OWNER_UID,"writingStyle","profile"),{profileText:String(profileText||""),updatedAt:serverTimestamp()},{merge:true});},
+  analyzeWritingStyle:async(references)=>geminiWorkerRequest("/ai/analyze-style",{references}),
+  getWritingStyleProfile:async()=>{requireOwner();const snap=await getDoc(doc(db,"users",OWNER_UID,"writingStyle","profile"));return snap.exists()?snap.data():{profileText:"",sections:null};},
+  saveWritingStyleProfile:async(profile)=>{requireOwner();const data=typeof profile==="string"?{profileText:profile,sections:null}:{sections:profile,profileText:Object.values(profile||{}).join("\n\n"),updatedAt:serverTimestamp()};data.updatedAt=serverTimestamp();await setDoc(doc(db,"users",OWNER_UID,"writingStyle","profile"),data,{merge:true});},
   // Leitura pública das informações exibidas nas abas Estatísticas e Ranking.
   // A identidade do proprietário é fixa; as regras do Firestore permitem leitura,
   // enquanto todas as operações de escrita continuam exigindo autenticação do dono.

@@ -1,4 +1,4 @@
-let writingStyleReferences=[],writingStyleProfile="",writingStyleEditingId=null,writingStyleLoaded=false;
+let writingStyleReferences=[],writingStyleProfile="",writingStyleSections=null,writingStyleEditingId=null,writingStyleLoaded=false;
 function writingStyleReferenceCard(item){
   const active=item.active!==false;
   return `<article class="ws-reference ${active?'':'ws-inactive'}" data-reference-id="${esc(item.id)}">
@@ -20,15 +20,20 @@ function renderWritingStyleForm(item=null){
     <div class="ws-actions"><button class="primary" type="submit">${item?'Salvar alterações':'Adicionar referência'}</button><button type="button" data-ws-action="cancel">Cancelar</button></div><p class="ws-feedback" id="ws-form-feedback" role="status"></p>
   </form>`;
 }
+
+const wsProfileFields=[['tonePersonality','Tom e personalidade'],['vocabularyLanguage','Vocabulário e linguagem'],['structure','Estrutura textual'],['argumentationCriticism','Argumentação e crítica'],['personalExpression','Expressão pessoal'],['avoid','O que evitar']];
+function renderWritingStyleProfileEditor(sections=null,legacyText=''){const root=$('ws-profile-editor');if(!root)return;const data=sections||Object.fromEntries(wsProfileFields.map(([key])=>[key,'']));root.innerHTML=`${wsProfileFields.map(([key,label])=>`<label class="ws-profile-field">${label}<textarea rows="3" data-profile-field="${key}" placeholder="${label}…">${esc(data[key]||'')}</textarea></label>`).join('')}<div class="ws-actions"><button type="button" class="primary" data-ws-action="save-profile">Salvar perfil</button></div>`;if(!sections&&legacyText){const first=root.querySelector('[data-profile-field="tonePersonality"]');if(first)first.value=legacyText;}}
+function readWritingStyleProfile(){return Object.fromEntries(wsProfileFields.map(([key])=>[key,$(`[data-profile-field="${key}"]`)?.value.trim()||'']));}
+
 async function renderWritingStyle(){
   const view=$('view');view.innerHTML=`<section class="writing-style-page"><header class="ws-intro"><div><p class="eyebrow">PERSONALIZAÇÃO</p><h2>Biblioteca de estilo</h2><p>Reúna resenhas que representam o estilo de escrita que gostaria de usar nas futuras resenhas geradas a partir do seu diário.</p></div></header>
-    ${!fbUser?`<div class="msg">Entre com a conta Google proprietária para acessar e gerenciar sua Biblioteca de estilo.</div>`:`<section class="ws-section"><div class="ws-section-head"><div><h3>Minhas referências</h3><p class="meta">Os textos adicionados aqui serão exemplos para a futura geração de resenhas.</p></div><button type="button" class="primary" data-ws-action="new">Adicionar referência</button></div><div id="ws-form"></div><div id="ws-reference-list" class="ws-reference-list"></div></section><section class="ws-section ws-profile"><div class="ws-section-head"><div><h3>Perfil de escrita</h3><p class="meta">Um espaço para guardar e editar a síntese do estilo, que será gerada por IA em uma etapa posterior.</p></div></div><textarea id="ws-profile-text" rows="8" placeholder="O perfil de escrita será criado a partir da análise das suas referências. Nesta primeira versão, você também pode escrever ou ajustar instruções manualmente."></textarea><div class="ws-actions"><button type="button" class="primary" data-ws-action="save-profile">Salvar perfil</button></div><p id="ws-profile-feedback" class="ws-feedback" role="status"></p></section>`}</section>`;
+    ${!fbUser?`<div class="msg">Entre com a conta Google proprietária para acessar e gerenciar sua Biblioteca de estilo.</div>`:`<section class="ws-section"><div class="ws-section-head"><div><h3>Minhas referências</h3><p class="meta">Os textos adicionados aqui serão exemplos para a futura geração de resenhas.</p></div><button type="button" class="primary" data-ws-action="new">Adicionar referência</button></div><div id="ws-form"></div><div id="ws-reference-list" class="ws-reference-list"></div></section><section class="ws-section ws-profile"><div class="ws-section-head"><div><h3>Perfil de escrita</h3><p class="meta">Analise suas referências ativas. A proposta gerada não substitui o perfil salvo até você aprovar.</p></div></div><div class="ws-actions"><button type="button" class="primary" data-ws-action="analyze">Analisar referências ativas</button></div><div id="ws-profile-editor"></div><div id="ws-profile-feedback" class="ws-feedback" role="status"></div></section>`}</section>`;
   if(!fbUser)return;
   const list=$('ws-reference-list');list.innerHTML='<div class="msg">Carregando suas referências…</div>';
   try{
-    const [refs,profile]=await Promise.all([hubFB.getWritingStyleReferences(),hubFB.getWritingStyleProfile()]);writingStyleReferences=refs;writingStyleProfile=profile?.profileText||"";writingStyleLoaded=true;
+    const [refs,profile]=await Promise.all([hubFB.getWritingStyleReferences(),hubFB.getWritingStyleProfile()]);writingStyleReferences=refs;writingStyleProfile=profile?.profileText||"";writingStyleSections=profile?.sections||null;writingStyleLoaded=true;
     list.innerHTML=refs.length?refs.map(writingStyleReferenceCard).join(''):'<div class="msg">Ainda não há resenhas de referência. Adicione textos que representem o estilo que você gostaria de preservar.</div>';
-    $('ws-profile-text').value=writingStyleProfile;
+    renderWritingStyleProfileEditor(writingStyleSections,writingStyleProfile);
   }catch(error){list.innerHTML=`<div class="msg err">Não foi possível carregar a biblioteca: ${esc(error.message)}</div>`;}
 }
 document.addEventListener('click',async e=>{
@@ -41,7 +46,7 @@ document.addEventListener('click',async e=>{
     if(action==='edit'){renderWritingStyleForm(item);return;}
     if(action==='toggle'&&item){await hubFB.saveWritingStyleReference({...item,active:item.active===false});await renderWritingStyle();}
     if(action==='delete'&&item&&confirm(`Excluir a referência "${item.title||'sem título'}"?`)){await hubFB.deleteWritingStyleReference(id);await renderWritingStyle();}
-    if(action==='save-profile'){const feedback=$('ws-profile-feedback');button.disabled=true;await hubFB.saveWritingStyleProfile($('ws-profile-text').value);feedback.textContent='Perfil salvo.';button.disabled=false;}
+    if(action==='analyze'){button.disabled=true;const feedback=$('ws-profile-feedback');feedback.textContent='Analisando referências ativas…';try{const active=writingStyleReferences.filter(r=>r.active!==false);if(!active.length)throw new Error('Ative pelo menos uma referência.');const result=await hubFB.analyzeWritingStyle(active);renderWritingStyleProfileEditor(result.profile);feedback.textContent=`Proposta gerada a partir de ${result.referenceCount} referência(s). Revise e salve para aprovar.`;button.disabled=false;}catch(error){feedback.textContent=`Falha na análise: ${error.message}`;button.disabled=false;}return;}if(action==='save-profile'){const feedback=$('ws-profile-feedback');button.disabled=true;try{await hubFB.saveWritingStyleProfile(readWritingStyleProfile());feedback.textContent='Perfil salvo.';}finally{button.disabled=false;}}
   }catch(error){const f=$('ws-profile-feedback');if(f)f.textContent=`Não foi possível concluir: ${error.message}`;button.disabled=false;}
 });
 document.addEventListener('submit',async e=>{
