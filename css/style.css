@@ -1220,3 +1220,13 @@ dialog{border-radius:20px;border-color:rgba(176,190,218,.18);background:#0b101b}
 
 /* v23 - perfil estruturado */
 .ws-profile-field{display:block;margin:1rem 0;font-weight:600}.ws-profile-field textarea{display:block;width:100%;margin-top:.45rem;min-height:5rem;resize:vertical;font-weight:400}
+/* Revisão de propostas de perfil */
+.ws-proposal{margin:16px 0;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+.ws-proposal h3{font:600 1.2rem var(--serif);margin:0 0 8px}
+.ws-proposal-field{padding:12px 0;border-top:1px solid var(--line)}
+.ws-proposal-field h4{margin:0 0 10px;font-size:1rem}
+.ws-proposal-columns{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ws-proposal-columns>div{min-width:0;padding:12px;border-radius:10px;background:var(--bg)}
+.ws-proposal-columns strong{font-size:.8rem;color:var(--muted)}
+.ws-proposal-columns p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55;margin:8px 0 0}
+@media(max-width:650px){.ws-proposal-columns{grid-template-columns:1fr}}
