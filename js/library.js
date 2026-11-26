@@ -182,6 +182,7 @@ function filterThemeList(root,kind){
 }
 
 function render(){
+  if(tab==="writing-style"){ $("filters").classList.add("hidden");$("type").classList.add("hidden");renderWritingStyle();return; }
   if(tab==="ranking"){ $("filters").classList.add("hidden");$("type").classList.add("hidden");renderRanking();return; }
   if(tab==="stats"){ $("filters").classList.add("hidden");$("type").classList.add("hidden");renderStats();return; }
   $("filters").classList.toggle("hidden",tab==="now"||tab==="panel");

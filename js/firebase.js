@@ -141,6 +141,12 @@ window.hubFB={
     const key=noteCacheKey(animeId),old=(await cacheGet(key))?.data||{};
     await cacheSet(key,{...old,animeId:Number(animeId),themeCatalog:catalog});
   },
+  // Biblioteca de estilo: referências e perfil pessoal de escrita, exclusivos do proprietário.
+  getWritingStyleReferences:async()=>{requireOwner();const snap=await getDocs(collection(db,"users",OWNER_UID,"writingStyleReferences"));return snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.updatedAtMs||b.createdAtMs||0)-(a.updatedAtMs||a.createdAtMs||0));},
+  saveWritingStyleReference:async(reference)=>{requireOwner();const ref=reference.id?doc(db,"users",OWNER_UID,"writingStyleReferences",reference.id):doc(collection(db,"users",OWNER_UID,"writingStyleReferences"));const data={title:String(reference.title||"").trim(),text:String(reference.text||""),animeTitle:String(reference.animeTitle||"").trim(),note:String(reference.note||"").trim(),active:reference.active!==false,updatedAt:serverTimestamp()};if(!reference.id)data.createdAt=serverTimestamp();await setDoc(ref,data,{merge:true});return ref.id;},
+  deleteWritingStyleReference:async(id)=>{requireOwner();await deleteDoc(doc(db,"users",OWNER_UID,"writingStyleReferences",id));},
+  getWritingStyleProfile:async()=>{requireOwner();const snap=await getDoc(doc(db,"users",OWNER_UID,"writingStyle","profile"));return snap.exists()?snap.data():{profileText:""};},
+  saveWritingStyleProfile:async(profileText)=>{requireOwner();await setDoc(doc(db,"users",OWNER_UID,"writingStyle","profile"),{profileText:String(profileText||""),updatedAt:serverTimestamp()},{merge:true});},
   // Leitura pública das informações exibidas nas abas Estatísticas e Ranking.
   // A identidade do proprietário é fixa; as regras do Firestore permitem leitura,
   // enquanto todas as operações de escrita continuam exigindo autenticação do dono.

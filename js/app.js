@@ -32,7 +32,7 @@ async function load({sync=false}={}){
   }finally{loadingCatalog=false;button.disabled=false;}
 }
 document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>{tab=b.dataset.tab;
-  document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));if(animes.length||tab==="stats"||tab==="ranking")render()}));
+  document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));if(animes.length||tab==="stats"||tab==="ranking"||tab==="writing-style")render()}));
 ["search-query", "type", "year", "season", "limit"].forEach(id => {
   const el = $(id);
   if (!el) return;
@@ -130,7 +130,7 @@ async function handleAniListCallback(){
   }
 }
 window.addEventListener("fb-user",async e=>{
-  fbUser=e.detail;updateMe();load({sync:false});
+  fbUser=e.detail;updateMe();load({sync:false});if(tab==="writing-style")render();
   if(fbUser){
     if(anilistCallback&&!anilistCallbackHandled)await handleAniListCallback();
     else await refreshAniListStatus({silent:true});
