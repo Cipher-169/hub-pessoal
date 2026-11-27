@@ -71,11 +71,11 @@ async function refreshOpenAnimeData(id,button){
     let progressUpdated=false,progressError=null;
     try{
       // Consulta somente o item desta obra na lista pública do AniList, não a biblioteca inteira.
-      const query=`query($userName:String,$mediaId:Int){MediaListCollection(userName:$userName,type:ANIME,mediaId:$mediaId){lists{entries{progress status media{id}}}}}`;
+      const query=`query($userName:String,$mediaId:Int){MediaList(userName:$userName,mediaId:$mediaId,type:ANIME){progress status media{id}}}`;
       const response=await fetch("https://graphql.anilist.co",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({query,variables:{userName:OWNER_ANILIST_USERNAME,mediaId:Number(id)}})});
       const payload=await response.json();
       if(!response.ok||payload.errors?.length)throw new Error(payload.errors?.[0]?.message||`AniList HTTP ${response.status}`);
-      const entry=payload.data?.MediaListCollection?.lists?.flatMap(list=>list.entries||[]).find(item=>Number(item.media?.id)===Number(id));
+      const entry=payload.data?.MediaList;
       if(entry){
         const anime=byId(id);if(anime)anime.progress=Number(entry.progress)||0;
         const cached=await hubFB.getAniListCache(OWNER_ANILIST_USERNAME);
