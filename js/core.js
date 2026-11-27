@@ -2,7 +2,7 @@
    CONTROLE DE VERSÃO:
    Sempre que modificar este arquivo incremente HUB_VERSION em +1.
    ===================================================================== */
-const HUB_VERSION = 23;
+const HUB_VERSION = "24.5";
 window.HUB_VERSION = HUB_VERSION;
 document.getElementById("project-version").textContent = `v${HUB_VERSION}`;
 
@@ -25,7 +25,7 @@ const TIERS=[[100,"Masterpiece","#f2c46d"],[95,"Almost Perfect","#ff7a4d"],[90,"
 const tier=s=>TIERS.find(t=>s>=t[0]);
 const badge=s=>{const t=tier(s);return `<span class="tier" style="--c:${t[2]}">${s}<small>${t[1]}</small></span>`};
 const sbadge=s=>{const t=tier(s*10);return `<span class="tier" style="--c:${t[2]}">${s}<small>/10</small></span>`};
-const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const esc=s=>String(s??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&amp;",">":"&gt;",'"':"&quot;"}[c]));
 const $=id=>document.getElementById(id);
 const SEASONS={WINTER:"Winter",SPRING:"Spring",SUMMER:"Summer",FALL:"Fall"};
 const when=a=>[SEASONS[a.season],a.year].filter(Boolean).join(" ");
@@ -68,17 +68,86 @@ async function fetchList(user){
     season:e.media.season,year:e.media.seasonYear,eps:e.media.episodes,airing:e.media.status,
     status:e.status,progress:e.progress,score:e.score}));
 }
+
 async function fetchThemes(id){
   if(themeCache.has(id)) return themeCache.get(id);
-  const r=await fetch(`https://api.animethemes.moe/anime?filter[has]=resources&filter[site]=AniList&filter[external_id]=${id}&include=animethemes.animethemeentries.videos,animethemes.song.artists`);
-  if(!r.ok)throw new Error(`AnimeThemes HTTP ${r.status}`);
+  const animeId=Number(id);
+  if(!Number.isSafeInteger(animeId)||animeId<=0)throw new Error("AniList ID inválido");
+
+  const query=`{
+    findAnimeByExternalSite(site: ANILIST, id: [${animeId}]) {
+      id
+      animethemes {
+        type
+        sequence
+        song {
+          title { romaji native }
+          performances {
+            alias
+            memberAlias
+            artist { name { main native } }
+            member { name { main native } }
+          }
+        }
+        animethemeentries {
+          episodes
+          notes
+          version
+          videos { nodes { link resolution tags nc lyrics } }
+        }
+      }
+    }
+  }`;
+  const r=await fetch("https://graphql.animethemes.moe/",{
+    method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({query})
+  });
+  if(!r.ok)throw new Error(`AnimeThemes GraphQL HTTP ${r.status}`);
   const j=await r.json();
-  if(!j||!Array.isArray(j.anime))throw new Error("Resposta inválida do AnimeThemes");
-  const th=(j.anime[0]?.animethemes||[]).map(t=>({slug:t.slug,type:t.type,title:t.song?.title||"(sem título)",
-    artist:(t.song?.artists||[]).map(a=>a.name).join(", "),eps:t.animethemeentries?.[0]?.episodes||"",
-    video:(t.animethemeentries?.[0]?.videos||[]).sort((a,b)=>(b.resolution||0)-(a.resolution||0))[0]?.link}));
+  if(j?.errors?.length)throw new Error(`AnimeThemes GraphQL: ${j.errors[0].message}`);
+  const anime=j?.data?.findAnimeByExternalSite?.[0];
+  if(!anime||!Array.isArray(anime.animethemes))throw new Error("Resposta inválida ou anime não encontrado no AnimeThemes");
+
+  const cleanText=value=>String(value||"").trim();
+  const getTitle=title=>cleanText(title?.romaji)||cleanText(title?.native)||"(sem título)";
+  const getArtist=performances=>{
+    const names=[];
+    for(const p of performances||[]){
+      const name=cleanText(p.alias)||cleanText(p.memberAlias)||cleanText(p.artist?.name?.main)||cleanText(p.artist?.name?.native)||cleanText(p.member?.name?.main)||cleanText(p.member?.name?.native);
+      if(name&&!names.includes(name))names.push(name);
+    }
+    return names.join(", ");
+  };
+  const videoScore=v=>{
+    if(!v?.link)return -Infinity;
+    let score=Number(v.resolution)||0;
+    if(v.nc===false)score+=100000;
+    else if(v.nc===true)score-=100000;
+    if(v.lyrics===false)score+=10000;
+    else if(v.lyrics===true)score-=10000;
+    const tags=Array.isArray(v.tags)?v.tags.join(" ").toLowerCase():String(v.tags||"").toLowerCase();
+    if(tags.includes("creditless"))score-=50000;
+    if(tags.includes("lyrics"))score-=5000;
+    return score;
+  };
+  const th=[];
+  for(const t of anime.animethemes){
+    const type=cleanText(t.type).toUpperCase();
+    const sequence=Number(t.sequence);
+    if(!["OP","ED"].includes(type)||!Number.isInteger(sequence)||sequence<1)continue;
+    const slug=`${type}${sequence}`;
+    const entries=(t.animethemeentries||[]).map(entry=>{
+      const videos=(entry.videos?.nodes||[]).filter(v=>v?.link).sort((a,b)=>videoScore(b)-videoScore(a));
+      return {entry,video:videos[0]||null,score:videos[0]?videoScore(videos[0]):-Infinity};
+    }).filter(x=>x.video).sort((a,b)=>b.score-a.score);
+    const chosen=entries[0];
+    if(!chosen)continue;
+    const item={slug,type,title:getTitle(t.song?.title),artist:getArtist(t.song?.performances),eps:cleanText(chosen.entry.episodes),video:chosen.video.link};
+    const existing=th.findIndex(x=>x.slug===slug);
+    if(existing<0)th.push(item);
+    else if(!th[existing].video&&item.video)th[existing]=item;
+  }
+  th.sort((a,b)=>a.type===b.type?Number(a.slug.slice(2))-Number(b.slug.slice(2)):a.type==="OP"?-1:1);
   // Não guardar respostas vazias: uma falha/retorno transitório não deve virar cache permanente nesta sessão.
   if(th.length)themeCache.set(id,th);
   return th;
 }
-
