@@ -68,6 +68,21 @@ async function refreshOpenAnimeData(id,button){
   try{
     // Atualiza apenas os documentos vinculados ao anime aberto, ignorando o TTL local.
     const freshNote=await hubFB.getAnimeNote(id,{refresh:true});
+    let progressUpdated=false,progressError=null;
+    try{
+      // Consulta somente o item desta obra na lista pública do AniList, não a biblioteca inteira.
+      const query=`query($userName:String,$mediaId:Int){MediaListCollection(userName:$userName,type:ANIME,mediaId:$mediaId){lists{entries{progress status media{id}}}}}`;
+      const response=await fetch("https://graphql.anilist.co",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({query,variables:{userName:OWNER_ANILIST_USERNAME,mediaId:Number(id)}})});
+      const payload=await response.json();
+      if(!response.ok||payload.errors?.length)throw new Error(payload.errors?.[0]?.message||`AniList HTTP ${response.status}`);
+      const entry=payload.data?.MediaListCollection?.lists?.flatMap(list=>list.entries||[]).find(item=>Number(item.media?.id)===Number(id));
+      if(entry){
+        const anime=byId(id);if(anime)anime.progress=Number(entry.progress)||0;
+        const cached=await hubFB.getAniListCache(OWNER_ANILIST_USERNAME);
+        if(cached?.items){const updated=cached.items.map(item=>Number(item.id)===Number(id)?{...item,progress:Number(entry.progress)||0,status:entry.status||item.status}:item);await hubFB.saveAniListCache(OWNER_ANILIST_USERNAME,updated);}
+        progressUpdated=true;
+      }else progressError="Este anime não foi encontrado na sua lista do AniList.";
+    }catch(progressFetchError){progressError=progressFetchError.message||"Não foi possível consultar o progresso do AniList.";console.warn("Falha ao atualizar o progresso individual do AniList",progressFetchError);}
     let themes=[],apiAvailable=true;
     try{themes=await fetchThemes(id)}catch(err){apiAvailable=false;}
     const themeList=themes.length?themes:(Array.isArray(freshNote.themeCatalog)?freshNote.themeCatalog:[]);
@@ -81,7 +96,7 @@ async function refreshOpenAnimeData(id,button){
     renderThemeList(id,themeList,freshNote,!apiAvailable);
     renderDiaryEntries(id,freshLogs,!!fbUser);
     await loadExperience(id);
-    if(status)status.textContent="Dados atualizados com sucesso.";
+    if(status)status.textContent=progressUpdated?"Dados do Hub e progresso do AniList atualizados.":`Dados do Hub atualizados. Progresso do AniList não atualizado${progressError?`: ${progressError}`:"."}`;
   }catch(err){
     if(status)status.textContent=`Falha ao atualizar: ${err.code||err.message||"erro desconhecido"}. Os dados exibidos foram mantidos.`;
   }finally{
